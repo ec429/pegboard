@@ -37,7 +37,7 @@ spin_unlock:		; release lock at IX
 	ld (IX+0),a		; no need for a locked op
 	ret
 
-.balign 16384
+.org 0x4000
 
 .data
 namelock: .byte 0xfe

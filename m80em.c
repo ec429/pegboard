@@ -28,11 +28,7 @@ typedef struct
 }
 mmu_t;
 
-#define PROGRAM	"locktest.bin"
-
-#define namelock	0x4000
-#define slotlock	0x4001
-#define slots		0x4003
+#define PROGRAM	"os/main.bin"
 
 int main(void)//int argc, char * argv[])
 {
@@ -69,7 +65,6 @@ int main(void)//int argc, char * argv[])
 	int errupt=0;
 	int T=0, maxT=1<<24;
 	bool can_progress; // _someone_ isn't WAITed
-	int nr_slots; // number of CPUs in the SLOTlock (should be <=1)
 	while(!errupt)
 	{
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
@@ -127,10 +122,6 @@ int main(void)//int argc, char * argv[])
 							//fprintf(stderr, "%02x: UNLOCK\n", ci);
 						}
 						//fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
-						/*if(cbus[ci].tris==TRIS_OUT && (cbus[ci].addr==namelock || cbus[ci].addr==slotlock))
-							fprintf(stderr, "    %s, %s\n", ram[0][namelock]^0xfe?"NAME":"name", ram[0][slotlock]^0xfe?"SLOT":"slot");*/
-						/*if(cbus[ci].tris==TRIS_OUT && cbus[ci].addr>=slots && cbus[ci].addr<slots+NR_CPUS)
-							fprintf(stderr, "%02x:s%02x<-%02x\n", ci, cbus[ci].addr-slots, cbus[ci].data);*/
 						cbus[ci].waitline=false;
 					}
 					else
@@ -157,28 +148,6 @@ int main(void)//int argc, char * argv[])
 					else
 						fprintf(stderr, "%02x: WAIT %02x (%04x)\n", ci, page, cbus[ci].addr);
 				}
-			break;
-		}
-		nr_slots=0;
-		for(uint8_t ci=0;ci<NR_CPUS;ci++)
-			if(ram[0][slots+ci]) nr_slots++;
-		if(nr_slots>1)
-		{
-			fprintf(stderr, "Locking failure!\n");
-			for(uint8_t ci=0;ci<NR_CPUS;ci++)
-			{
-				if(cbus[ci].mreq&&cbus[ci].tris)
-				{
-					uint8_t pi=cbus[ci].addr>>14;
-					uint8_t page=mmu.page[ci][pi];
-					if(mmu.using[page]<0)
-						fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, cbus[ci].data);
-					else
-						fprintf(stderr, "%02x: WAIT %02x (%04x)\n", ci, page, cbus[ci].addr);
-				}
-				uint8_t e=cpu[ci].regs[6];
-				fprintf(stderr, "%02x:s%02x==%02x\n", ci, e, ram[0][slots+e]);
-			}
 			break;
 		}
 		if(T++>=maxT) break;

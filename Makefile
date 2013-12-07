@@ -5,7 +5,7 @@ TARGET_LDFLAGS := -T m80.ld
 
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
 
-all: locktest.bin m80em
+all: locktest.bin m80em os/main.bin
 
 # Rules to build the emulator
 EM_OBJS := m80em.o z80.o ops.o
@@ -25,8 +25,11 @@ m80em.o: z80.h ops.h
 %.zo: %.s
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
 
+os/main.bin:
+	make -C os
+
 FORCE:
 
 clean:
 	-rm -f *.zo *.bin
-
+	make -C os clean
