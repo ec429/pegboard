@@ -1,18 +1,32 @@
-AS := z80-unknown-coff-as
-ASFLAGS := -z80
-LD := z80-unknown-coff-ld
-LDFLAGS := -T m80.ld
+TARGET_AS := z80-unknown-coff-as
+TARGET_ASFLAGS := -z80
+TARGET_LD := z80-unknown-coff-ld
+TARGET_LDFLAGS := -T m80.ld
 
-all: locktest.bin
+CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
 
-%.bin: %.o $(OBJS) m80.ld
-	$(LD) -o $@ $< $(LDFLAGS) $(OBJS)
+all: locktest.bin m80em
 
-%.o: %.asm
-	$(AS) $(ASFLAGS) $< -o $@
+# Rules to build the emulator
+EM_OBJS := m80em.o z80.o ops.o
+
+m80em: $(EM_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(EM_OBJS)
+
+m80em.o: z80.h ops.h
+
+%.o: %.c %.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
+
+# Rules to build target executables
+%.bin: %.zo $(TARGET_OBJS) m80.ld
+	$(TARGET_LD) -o $@ $< $(TARGET_LDFLAGS) $(TARGET_OBJS)
+
+%.zo: %.s
+	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
 
 FORCE:
 
 clean:
-	-rm -f *.o *.bin
+	-rm -f *.zo *.bin
 
