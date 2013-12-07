@@ -30,10 +30,15 @@ mmu_t;
 
 #define PROGRAM	"os/main.bin"
 
+#define IO_TERMINAL	0x10
+
+#define TTY_BUF_LEN	128
+
 int main(void)//int argc, char * argv[])
 {
 	// State
 	z80 cpu[NR_CPUS];
+	uint8_t irq[NR_CPUS];
 	bus_t cbus[NR_CPUS], rbus[NR_PAGES];
 	ram_page ram[NR_PAGES];
 	mmu_t mmu;
@@ -46,6 +51,7 @@ int main(void)//int argc, char * argv[])
 	mmu.lock=-1;
 	for(uint8_t ci=0;ci<NR_CPUS;ci++)
 	{
+		irq[ci]=0;
 		z80_reset(&cpu[ci], &cbus[ci]);
 		bus_reset(&cbus[ci]);
 		for(uint8_t pi=0;pi<4;pi++)
@@ -62,14 +68,62 @@ int main(void)//int argc, char * argv[])
 			break;
 	}
 	close(prog);
+	uint8_t tty_owner=0;
+	char tty_buf[TTY_BUF_LEN];
+	int tty_buf_wp=0, tty_buf_rp=0;
+	int tty_T=0;
 	int errupt=0;
 	int T=0, maxT=1<<24;
 	bool can_progress; // _someone_ isn't WAITed
 	while(!errupt)
 	{
+		if(!irq[tty_owner] && (tty_buf_wp!=tty_buf_rp))
+			irq[tty_owner]=IO_TERMINAL;
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
+			if(irq[ci])
+			{
+				cbus[ci].irq=true;
+				if(cpu[ci].intacc)
+					cbus[ci].data=irq[ci];
+			}
 			if((errupt=z80_tstep(&cpu[ci], &cbus[ci], errupt))) break;
+			/* IO devices */
+			if(cbus[ci].iorq&&cbus[ci].tris)
+			{
+				uint8_t port=cbus[ci].addr&0xff;
+				if(!port) // IO control
+				{
+					if(cbus[ci].tris==TRIS_OUT)
+					{
+						switch(cbus[ci].data)
+						{
+							case IO_TERMINAL:
+								tty_owner=ci;
+							break;
+							default:
+							break;
+						}
+					}
+				}
+				else if(port==IO_TERMINAL) // Terminal
+				{
+					if(cbus[ci].tris==TRIS_IN)
+					{
+						if(tty_buf_wp!=tty_buf_rp)
+						{
+							cbus[ci].data=tty_buf[tty_buf_rp++];
+							tty_buf_rp%=TTY_BUF_LEN;
+						}
+					}
+					else if(T>tty_T+1)
+					{
+						putchar(cbus[ci].data);
+						tty_T=T;
+					}
+				}
+			}
+			/* MMU */
 			for(uint8_t pi=0;pi<4;pi++)
 			{
 				uint8_t page=mmu.page[ci][pi];
@@ -131,6 +185,7 @@ int main(void)//int argc, char * argv[])
 				}
 			}
 		}
+		/* Check for hw deadlock (shouldn't happen) */
 		can_progress=false;
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 			if(!cbus[ci].waitline)

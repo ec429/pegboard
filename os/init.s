@@ -1,4 +1,5 @@
 .section init, "rx"
+	DI
 	LD D,0
 	LD HL,cpuindex
 	LD IX,cpuindex_lock
@@ -12,7 +13,7 @@
 	LD L,0xfe
 	LD SP,HL
 	CALL spin_unlock
-	LD IY,0
+	LD IY,0xfffe
 	ADD IY,SP		; IY points to the percpu_struct
 	PUSH DE
 	JP main
@@ -22,6 +23,6 @@ cpuindex_lock: .byte 0xfe
 cpuindex: .byte 0
 
 ; struct percpu_struct {
-;	u8 unused;
 ;   u8 cpuid;
+;	u8 unused;
 ; }

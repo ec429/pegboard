@@ -25,7 +25,7 @@ m80em.o: z80.h ops.h
 %.zo: %.s
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
 
-os/main.bin:
+os/main.bin: FORCE
 	make -C os
 
 FORCE:
