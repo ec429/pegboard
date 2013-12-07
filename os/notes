@@ -4,7 +4,7 @@ spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX
 
 
 Next steps:
-	Design, implement and support paging control.
+	Support paging control.  Will want to reserve a page for storing the page bitmap, and give it a lock.
 	Implement a scheduler, and some sleeping locks (semaphores).
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.

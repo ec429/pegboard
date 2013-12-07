@@ -16,7 +16,7 @@
 #include "z80.h"
 
 #define NR_CPUS		4
-#define NR_PAGES	4
+#define NR_PAGES	64
 
 typedef uint8_t ram_page[16384];
 
@@ -127,7 +127,7 @@ int main(void)//int argc, char * argv[])
 			for(uint8_t pi=0;pi<4;pi++)
 			{
 				uint8_t page=mmu.page[ci][pi];
-				if(mmu.using[page]==ci)
+				if(page<NR_PAGES&&mmu.using[page]==ci)
 					mmu.using[page]=-1;
 			}
 			if(cbus[ci].mreq&&cbus[ci].tris)
@@ -140,47 +140,54 @@ int main(void)//int argc, char * argv[])
 				{
 					uint8_t pi=cbus[ci].addr>>14;
 					uint8_t page=mmu.page[ci][pi];
-					if(mmu.using[page]<0)
+					if(page<NR_PAGES)
 					{
-						mmu.using[page]=ci;
-						/* MMU */
-						rbus[page].tris=cbus[ci].tris;
-						rbus[page].addr=cbus[ci].addr&0x3fff;
-						if(rbus[page].tris==TRIS_OUT)
-							rbus[page].data=cbus[ci].data;
-						/* RAM */
-						if(rbus[page].tris==TRIS_IN)
-							rbus[page].data=ram[page][rbus[page].addr];
-						else
-							ram[page][rbus[page].addr]=rbus[page].data;
-						/* and MMU again */
-						if(rbus[page].tris==TRIS_IN)
+						if(mmu.using[page]<0)
 						{
-							cbus[ci].data=rbus[page].data;
-							if(cbus[ci].data==0xdd)
-							{
-								if(mmu.dd[ci])
-								{
-									mmu.lock=ci;
-									//fprintf(stderr, "%02x: LOCK\n", ci);
-								}
-								else if(cbus[ci].m1)
-									mmu.dd[ci]=true;
-							}
+							mmu.using[page]=ci;
+							/* MMU */
+							rbus[page].tris=cbus[ci].tris;
+							rbus[page].addr=cbus[ci].addr&0x3fff;
+							if(rbus[page].tris==TRIS_OUT)
+								rbus[page].data=cbus[ci].data;
+							/* RAM */
+							if(rbus[page].tris==TRIS_IN)
+								rbus[page].data=ram[page][rbus[page].addr];
 							else
-								mmu.dd[ci]=false;
+								ram[page][rbus[page].addr]=rbus[page].data;
+							/* and MMU again */
+							if(rbus[page].tris==TRIS_IN)
+							{
+								cbus[ci].data=rbus[page].data;
+								if(cbus[ci].data==0xdd)
+								{
+									if(mmu.dd[ci])
+									{
+										mmu.lock=ci;
+										//fprintf(stderr, "%02x: LOCK\n", ci);
+									}
+									else if(cbus[ci].m1)
+										mmu.dd[ci]=true;
+								}
+								else
+									mmu.dd[ci]=false;
+							}
+							else if(mmu.lock==ci)
+							{
+								mmu.lock=-1;
+								//fprintf(stderr, "%02x: UNLOCK\n", ci);
+							}
+							//fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
+							cbus[ci].waitline=false;
 						}
-						else if(mmu.lock==ci)
+						else
 						{
-							mmu.lock=-1;
-							//fprintf(stderr, "%02x: UNLOCK\n", ci);
+							cbus[ci].waitline=true;
 						}
-						//fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
-						cbus[ci].waitline=false;
 					}
-					else
+					else if(cbus[ci].tris==TRIS_IN)
 					{
-						cbus[ci].waitline=true;
+						cbus[ci].data=0xff;
 					}
 				}
 			}
@@ -198,7 +205,7 @@ int main(void)//int argc, char * argv[])
 				{
 					uint8_t pi=cbus[ci].addr>>14;
 					uint8_t page=mmu.page[ci][pi];
-					if(mmu.using[page]<0)
+					if(page<NR_PAGES&&mmu.using[page]<0)
 						fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, cbus[ci].data);
 					else
 						fprintf(stderr, "%02x: WAIT %02x (%04x)\n", ci, page, cbus[ci].addr);
