@@ -1,0 +1,26 @@
+We require that the MMU detects a DD DD or DD FD prefix and pulls down other cpus' /WAIT (or at least those with the page mapped in).  It unlocks when it sees a write complete
+We use the following locking functions:
+
+spin_lock:			; acquire lock at IX
+	lock sra (IX+0)	; lock prefix is DD
+	jr c, spin_lock
+	ret
+
+spin_unlock:
+	ld a,0xfe
+	ld (IX+0),a		; no need for a locked op
+	ret
+
+The locked instruction assembles to DD DD CB 00 2E (unless I've made a mistake...)
+M-cycles:
+spin_lock:
+ 1  2  3  4  5  6  7  8  9  10 1  2  3  4  5  6  7  8  9  20 1  2  3  4  5  6  7  8  9  30 1  2  3  4  5  6  7  8  9  40 1  2  3  4  5
+ T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__T__
+|OCF4   W   |OCF4   W L!|OCF4   W   |OD3 W   |IO5    W      |MR4    W   |MW3   UW|OCF4   W   |OD3 W   |IO5           |repeat from spin_lock
+                                                                                           if acquired:OCF4      W   |SR3 W   |SR3 W   |
+spin_unlock:
+|OCF4   W   |OD3 W   |OCF4   W   |OCF4   W   |OD3 W   |IO5    W      |MW3    W|OCF4      W   |SR3 W   |SR3 W   |
+
+So let us suppose that A has the spinlock, B is in 'lock sra' and C is waiting to read the second DD of its 'lock sra'.  A will run until it reaches a Wait, then both A and C are stalled.
+B now reaches its UW, releasing the others.  For any reads not touching the spinlock, RAM contention won't come into play, so A and C will each proceed for one T-state.  A will now have completed its read, and C will have the lock.  (If there is a D also trying to acquire the lock, the arbitrator will have to prevent it from advancing.)
+The special case is when A is trying to do its MW to the spinlock.  But at this point, assuming B is out of the way by this point, no-one else is trying to touch the spinlock, so there is still no contention.  Thus A will succeed in releasing the spinlock.  The assumption depends on how the MMU handles things, and the precise timing of the U - it may have to be delayed to the cycle after B's write completes.
