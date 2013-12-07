@@ -2,8 +2,8 @@
 OUTPUT_FORMAT("binary")
 OUTPUT_ARCH("z80")
 MEMORY {
-   program : ORIGIN = 0x0, LENGTH = 0x3c00
-   isr : ORIGIN = 0x3c00, LENGTH = 0x400
+   program : ORIGIN = 0x0, LENGTH = 0x5c00
+   isr : ORIGIN = 0x5c00, LENGTH = 0x400
 }
 SECTIONS
 {

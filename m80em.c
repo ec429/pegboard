@@ -30,9 +30,9 @@ mmu_t;
 
 #define PROGRAM	"locktest.bin"
 
-#define namelock	0x3c
-#define slotlock	0x3d
-#define slots		0x3f
+#define namelock	0x4000
+#define slotlock	0x4001
+#define slots		0x4003
 
 int main(void)//int argc, char * argv[])
 {
@@ -57,8 +57,14 @@ int main(void)//int argc, char * argv[])
 	}
 	z80_init(); // initialise decoding tables
 	int prog=open(PROGRAM, O_RDONLY);
-	ssize_t bytes=read(prog, ram[0], sizeof(ram[0]));
-	fprintf(stderr, "Program: %zd bytes\n", bytes);
+	for(uint8_t page=0;page<NR_PAGES;page++)
+	{
+		ssize_t bytes=read(prog, ram[page], sizeof(ram[page]));
+		if(bytes>0)
+			fprintf(stderr, "Page %02x: %zd bytes\n", page, bytes);
+		else
+			break;
+	}
 	close(prog);
 	int errupt=0;
 	int T=0, maxT=1<<24;
