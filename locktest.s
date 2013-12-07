@@ -5,11 +5,11 @@
 	LD HL,cpuindex
 	LD E,(HL)
 	INC (HL)
-					; set up individual stack at 0xf000 + cpuindex*0x100
-	LD A,0xf0
-	ADD A,E
+					; set up individual stack at 0xfffe - cpuindex*0x100
+	LD A,0xff
+	SUB E
 	LD H,A
-	LD L,0
+	LD L,0xfe
 	LD SP,HL
 	CALL spin_unlock
 main:
