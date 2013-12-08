@@ -25,6 +25,9 @@ main:
 	CALL perror
 	JR ptest_over
 now_free_it:
+	DJNZ .
+	DJNZ .
+	DJNZ .
 	CALL free_page
 	LD A,E
 	AND A
