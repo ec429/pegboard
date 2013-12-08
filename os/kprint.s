@@ -46,10 +46,10 @@ kputs_unlocked:
 kprint_hex_prepare:
 	PUSH AF
 	AND 0xf
-	ADD A, 0x30
+	ADD A,0x30
 	CP 0x3a
 	JR C,khp_save
-	ADD A, 7
+	ADD A,7
 khp_save:
 	LD D,A
 	POP AF
@@ -57,10 +57,10 @@ khp_save:
 	SRL A
 	SRL A
 	SRL A
-	ADD A, 0x30
+	ADD A,0x30
 	CP 0x3a
 	RET C
-	ADD A, 7
+	ADD A,7
 	RET
 
 .globl kprint_hex	; write value in A as hex to terminal (no 0x prefix)
