@@ -13,8 +13,7 @@ kputc_unlocked:
 	OUT (0x10),A
 	RET
 
-.globl kputs		; write string (at HL) to terminal; max length 256
-kputs:
+kputs_prepare:
 	LD BC,0x100
 	PUSH HL
 	POP IX
@@ -27,6 +26,11 @@ kputs:
 	LD C,0x10
 	PUSH IX
 	POP HL
+	RET
+
+.globl kputs		; write string (at HL) to terminal; max length 256
+kputs:
+	CALL kputs_prepare
 	LD IX,kprint_lock
 	CALL spin_lock
 	OTIR
@@ -35,19 +39,47 @@ kputs:
 
 .globl kputs_unlocked ; as kputs but must already hold the kprint_lock
 kputs_unlocked:
-	LD BC,0x100
-	PUSH HL
-	POP IX
-	XOR A
-	CPIR
-	RET Z
-	LD A,C
-	NEG
-	LD B,A
-	LD C,0x10
-	PUSH IX
-	POP HL
+	CALL kputs_prepare
 	OTIR
+	RET
+
+kprint_hex_prepare:
+	PUSH AF
+	AND 0xf
+	ADD A, 0x30
+	CP 0x3a
+	JR C,khp_save
+	ADD A, 7
+khp_save:
+	LD D,A
+	POP AF
+	SRL A
+	SRL A
+	SRL A
+	SRL A
+	ADD A, 0x30
+	CP 0x3a
+	RET C
+	ADD A, 7
+	RET
+
+.globl kprint_hex	; write value in A as hex to terminal (no 0x prefix)
+kprint_hex:
+	CALL kprint_hex_prepare
+	LD IX,kprint_lock
+	CALL spin_lock
+	OUT (0x10),A
+	LD A,D
+	OUT (0x10),A
+	CALL spin_unlock
+	RET
+
+.globl kprint_hex_unlocked ; as kprint_hex but must already hold the kprint_lock
+kprint_hex_unlocked:
+	CALL kprint_hex_prepare
+	OUT (0x10),A
+	LD A,D
+	OUT (0x10),A
 	RET
 
 .data

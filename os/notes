@@ -2,11 +2,11 @@ init.s gets built to address 0.  All CPUs will enter it as soon as they come onl
 
 spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX+0)'.  It was inspired by http://u6c87.blogspot.co.uk/2011/10/atomic-instructions-on-z80-for-locking.html but that article only considers UP; for SMP the lock prefix had to be added to ensure the MMU doesn't let someone else in during our read-modify-write.  Spinlocks tend to perform poorly under contention, and this is certainly the case here; since a locked op blocks _all_ other memory traffic, a herd of CPUs trying to acquire the lock can significantly slow down the release path, leading to O(n²) thrashing.  Fortunately, it should be possible to loosen the locked-op rules while maintaining correctness, at the cost of increased MMU complexity; this could reduce the performance penalty significantly.
 
+Allocation bitmap is stored in page 1: up to 254 bytes starting at offset 2, each containing the PID of the page owner (or 0 for free pages).  While at offset 0 we have the lock, and at offset 1 the number of free pages.
 
 Next steps:
-	Support paging control.  Will want to reserve a page for storing the page bitmap, and give it a lock.
+	Functions to allocate and free pages.
 	Implement a scheduler, and some sleeping locks (semaphores).
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.
 	Write a panic() function, for when things go wrong.
-	Add a backing store device.

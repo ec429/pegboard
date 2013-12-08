@@ -16,11 +16,23 @@
 	LD IY,0xfffe
 	ADD IY,SP		; IY points to the percpu_struct
 	PUSH DE
+	LD A,E
+	AND A
+	JR Z,start_main
+	LD HL,can_start_other_cpus
+wait_to_start:
+	DJNZ .
+	LD A,(HL)
+	AND A
+	JR Z,wait_to_start
+start_main:
 	JP main
 
 .data
 cpuindex_lock: .byte 0xfe
 cpuindex: .byte 0
+.globl can_start_other_cpus
+can_start_other_cpus: .byte 0
 
 ; struct percpu_struct {
 ;   u8 cpuid;

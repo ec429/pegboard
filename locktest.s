@@ -37,9 +37,8 @@ spin_unlock:		; release lock at IX
 	ld (IX+0),a		; no need for a locked op
 	ret
 
-.org 0x4000
-
 .data
+.section mem_page
 namelock: .byte 0xfe
 slotlock: .byte 0xfe
 cpuindex: .byte 0

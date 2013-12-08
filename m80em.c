@@ -30,6 +30,7 @@ mmu_t;
 
 #define PROGRAM	"os/main.bin"
 
+#define IO_MMU		0x05
 #define IO_TERMINAL	0x10
 
 #define TTY_BUF_LEN	128
@@ -55,7 +56,7 @@ int main(void)//int argc, char * argv[])
 		z80_reset(&cpu[ci], &cbus[ci]);
 		bus_reset(&cbus[ci]);
 		for(uint8_t pi=0;pi<4;pi++)
-			mmu.page[ci][pi]=pi;
+			mmu.page[ci][pi]=0;
 	}
 	z80_init(); // initialise decoding tables
 	int prog=open(PROGRAM, O_RDONLY);
@@ -106,7 +107,19 @@ int main(void)//int argc, char * argv[])
 						}
 					}
 				}
-				else if(port==IO_TERMINAL) // Terminal
+				else if(port==IO_MMU)
+				{
+					uint8_t cmd=cbus[ci].addr>>8;
+					if(cbus[ci].tris==TRIS_IN)
+					{
+						cbus[ci].data=mmu.page[ci][cmd&3];
+					}
+					else
+					{
+						mmu.page[ci][cmd&3]=cbus[ci].data;
+					}
+				}
+				else if(port==IO_TERMINAL)
 				{
 					if(cbus[ci].tris==TRIS_IN)
 					{
@@ -177,6 +190,7 @@ int main(void)//int argc, char * argv[])
 								mmu.lock=-1;
 								//fprintf(stderr, "%02x: UNLOCK\n", ci);
 							}
+							//if(cbus[ci].tris==TRIS_OUT)
 							//fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
 							cbus[ci].waitline=false;
 						}
