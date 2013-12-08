@@ -5,7 +5,6 @@ spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX
 Allocation bitmap is stored in page 1: up to 254 bytes starting at offset 2, each containing the PID of the page owner (or 0 for free pages).  While at offset 0 we have the lock, and at offset 1 the number of free pages.
 
 Next steps:
-	Functions to allocate and free pages.
 	Implement a scheduler, and some sleeping locks (semaphores).
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.

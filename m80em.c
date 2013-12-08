@@ -190,6 +190,8 @@ int main(void)//int argc, char * argv[])
 								mmu.lock=-1;
 								//fprintf(stderr, "%02x: UNLOCK\n", ci);
 							}
+							/*if(((cbus[ci].addr==0x279)||(cbus[ci].addr==0x4000))&&(cbus[ci].data==0xfe))
+								fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);*/
 							//if(cbus[ci].tris==TRIS_OUT)
 							//fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
 							cbus[ci].waitline=false;

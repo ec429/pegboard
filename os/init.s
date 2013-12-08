@@ -1,13 +1,13 @@
 .section init, "rx"
 	DI
-	LD D,0
+	LD D,1
 	LD HL,cpuindex
 	LD IX,cpuindex_lock
 	CALL spin_lock
 	LD E,(HL)
 	INC (HL)
-					; set up individual stack at 0xfffe - cpuindex*0x100
-	LD A,0xff
+					; set up individual stack at 0x3ffe - cpuindex*0x100
+	LD A,0x3f
 	SUB E
 	LD H,A
 	LD L,0xfe
@@ -36,5 +36,5 @@ can_start_other_cpus: .byte 0
 
 ; struct percpu_struct {
 ;   u8 cpuid;
-;	u8 unused;
+;	u8 current_pid;
 ; }

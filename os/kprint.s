@@ -63,7 +63,7 @@ khp_save:
 	ADD A,7
 	RET
 
-.globl kprint_hex	; write value in A as hex to terminal (no 0x prefix)
+.globl kprint_hex	; write value in A as hex to terminal (no 0x prefix), plus trailing \n
 kprint_hex:
 	CALL kprint_hex_prepare
 	LD IX,kprint_lock
@@ -71,10 +71,12 @@ kprint_hex:
 	OUT (0x10),A
 	LD A,D
 	OUT (0x10),A
+	LD A,0x0a
+	OUT (0x10),A
 	CALL spin_unlock
 	RET
 
-.globl kprint_hex_unlocked ; as kprint_hex but must already hold the kprint_lock
+.globl kprint_hex_unlocked ; as kprint_hex but must already hold the kprint_lock; and no \n
 kprint_hex_unlocked:
 	CALL kprint_hex_prepare
 	OUT (0x10),A
