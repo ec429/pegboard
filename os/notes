@@ -8,7 +8,7 @@ For now, scheduling is based on a simple run-queue; any process which blocks in 
 enum status_t { TASK_RUNNING=0, TASK_RUNNABLE=1, TASK_INTERRUPTIBLE=2, TASK_UNINTERRUPTIBLE=3, };
 Interruptible and Uninterruptible both mean we're blocked in the kernel.
 struct process { byte pid; enum status_t status; byte basepage; } runq[8], waitq[8];
-I did wonder if we needed to save the registers in struct process as well, but I think each process can reserve space at the start of its first page.
+I did wonder if we needed to save the registers in struct process as well, but in fact we can save them on the kernel stack, which will be on the basepage, along with other per-process data such as page allocations.
 pid 0 represents "no process".
 
 Next steps:
@@ -17,4 +17,4 @@ Next steps:
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.  (Probably just an OUT whose high address byte is CPUid, and the data byte could be a mailbox number of some sort.)
 	Write a panic() function, for when things go wrong.
-	Design a system call entry mechanism that allows for protection (eg. prevent mapping in page 0 except by sysenter.  Maybe use RST 38 as SYSENTER.  But then what about interrupts?)
+	Design a system call entry mechanism that allows for protection (eg. prevent mapping in kernel pages except by sysenter.  Maybe use RST 38 as SYSENTER.  But then what about interrupts?)
