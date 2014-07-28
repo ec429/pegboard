@@ -4,8 +4,17 @@ spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX
 
 Allocation bitmap is stored in page 1: up to 254 bytes starting at offset 2, each containing the PID of the page owner (or 0 for free pages).  While at offset 0 we have the lock, and at offset 1 the number of free pages.
 
+For now, scheduling is based on a simple run-queue; any process which blocks in the kernel gets added to a waitqueue - then to the head of the run-queue when it becomes unblocked; any process which expires its time-slice gets added to the tail; and the next process to run is popped from the head.  Until we have kmalloc, both queues will be fixed 8-slot allocations (so this will be our max. number of processes).
+enum status_t { TASK_RUNNING=0, TASK_RUNNABLE=1, TASK_INTERRUPTIBLE=2, TASK_UNINTERRUPTIBLE=3, };
+Interruptible and Uninterruptible both mean we're blocked in the kernel.
+struct process { byte pid; enum status_t status; byte basepage; } runq[8], waitq[8];
+I did wonder if we needed to save the registers in struct process as well, but I think each process can reserve space at the start of its first page.
+pid 0 represents "no process".
+
 Next steps:
 	Implement a scheduler, and some sleeping locks (semaphores).
+	Implement a kmalloc/kfree (using page 1 as the arena).
 	Write useful print routines (a simple printk?)
-	Devise a scheme for IPIs.
+	Devise a scheme for IPIs.  (Probably just an OUT whose high address byte is CPUid, and the data byte could be a mailbox number of some sort.)
 	Write a panic() function, for when things go wrong.
+	Design a system call entry mechanism that allows for protection (eg. prevent mapping in page 0 except by sysenter.  Maybe use RST 38 as SYSENTER.  But then what about interrupts?)
