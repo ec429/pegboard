@@ -1,7 +1,3 @@
-ENOMEM equ 12
-EFAULT equ 14
-EINVAL equ 22
-
 .text
 
 .globl perror		; writes "[HL]: strerror(E)\n" to terminal
@@ -52,9 +48,11 @@ perror_donl:
 .data
 error_string_1: .asciz ": "
 error_table:
-	.rept 12
+	.word success
+	.rept 10
 	.word ehwhatnow
 	.endr
+	.word eagain
 	.word enomem
 	.word ehwhatnow
 	.word efault
@@ -63,6 +61,8 @@ error_table:
 	.endr
 	.word einval
 error_table_end:
+success: .asciz "Success"
+eagain: .asciz "Resource temporarily unavailable"
 enomem: .asciz "Out of memory"
 efault: .asciz "Bad address"
 einval: .asciz "Invalid argument"

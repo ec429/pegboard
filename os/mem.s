@@ -1,4 +1,4 @@
-.include "errno.s"
+.include "errno.inc"
 
 .text
 

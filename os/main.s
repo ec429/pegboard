@@ -7,6 +7,7 @@ main:
 	LD A,(IY+0)
 	AND A
 	CALL Z,cpu0_setup
+; we are now online
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,start_msg_1
@@ -17,24 +18,21 @@ main:
 	CALL kputs_unlocked
 	LD IX,kprint_lock
 	CALL spin_unlock
-; paging test: get a page, sleep a bit, and free it
-	CALL get_page
-	AND A
-	JR NZ,now_free_it
-	LD HL,STR_get_page
+; scheduler test
+	LD A,1
+stest:
+	INC A
+	PUSH AF
+	CALL createproc
+	LD HL,STR_createproc
 	CALL perror
-	JR ptest_over
-now_free_it:
-	DJNZ .
-	DJNZ .
-	DJNZ .
-	CALL free_page
-	LD A,E
-	AND A
-	JR Z,ptest_over
-	LD HL,STR_free_page
-	CALL perror
-ptest_over:
+	POP AF
+	CP 0x0c
+	JR NZ,stest
+; finished
+	POP AF
+	LD HL,STR_finished
+	CALL kputs
 	HALT
 
 cpu0_setup:
@@ -44,8 +42,11 @@ cpu0_setup:
 	RET
 
 .data
-STR_get_page: .asciz "get_page"
-STR_free_page: .asciz "free_page"
+STR_stest: .ascii "stest"
+.byte 0x0a,0
+STR_createproc: .asciz "createproc"
+STR_finished: .ascii "finished"
+.byte 0x0a,0
 start_msg_1: .asciz "CPU #"
 start_msg_2: .ascii " online"
 .byte 0x0a,0
