@@ -15,7 +15,7 @@
 #include "ops.h"
 #include "z80.h"
 
-#define NR_CPUS		4
+#define NR_CPUS		1
 #define NR_PAGES	64
 
 typedef uint8_t ram_page[16384];
@@ -31,6 +31,8 @@ mmu_t;
 #define PROGRAM	"os/main.bin"
 
 #define IO_MMU		0x05
+#define	 MM_SETPAGE	0x00
+#define	 MM_GETPAGE	0x01
 #define IO_TERMINAL	0x10
 
 #define TTY_BUF_LEN	128
@@ -75,6 +77,9 @@ int main(void)//int argc, char * argv[])
 	int tty_T=0;
 	int errupt=0;
 	int T=0, maxT=1<<24;
+#ifdef LOCK_DEBUG
+	bool lockmap[32768];
+#endif
 	bool can_progress; // _someone_ isn't WAITed
 	while(!errupt)
 	{
@@ -82,9 +87,8 @@ int main(void)//int argc, char * argv[])
 			irq[tty_owner]=IO_TERMINAL;
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
-			if(irq[ci])
+			if((cbus[ci].irq=irq[ci]))
 			{
-				cbus[ci].irq=true;
 				if(cpu[ci].intacc)
 					cbus[ci].data=irq[ci];
 			}
@@ -109,14 +113,25 @@ int main(void)//int argc, char * argv[])
 				}
 				else if(port==IO_MMU)
 				{
-					uint8_t cmd=cbus[ci].addr>>8;
+					uint8_t cmd=cbus[ci].addr>>10; // command
+					uint8_t pi=(cbus[ci].addr>>8)&3; // vpage
 					if(cbus[ci].tris==TRIS_IN)
 					{
-						cbus[ci].data=mmu.page[ci][cmd&3];
+						if(cmd==MM_GETPAGE)
+						{
+							cbus[ci].data=mmu.page[ci][pi];
+						}
+						else
+						{
+							cbus[ci].data=0xff;
+						}
 					}
 					else
 					{
-						mmu.page[ci][cmd&3]=cbus[ci].data;
+						if(cmd==MM_SETPAGE)
+						{
+							mmu.page[ci][pi]=cbus[ci].data;
+						}
 					}
 				}
 				else if(port==IO_TERMINAL)
@@ -177,7 +192,6 @@ int main(void)//int argc, char * argv[])
 									if(mmu.dd[ci])
 									{
 										mmu.lock=ci;
-										//fprintf(stderr, "%02x: LOCK\n", ci);
 									}
 									else if(cbus[ci].m1)
 										mmu.dd[ci]=true;
@@ -188,12 +202,14 @@ int main(void)//int argc, char * argv[])
 							else if(mmu.lock==ci)
 							{
 								mmu.lock=-1;
-								//fprintf(stderr, "%02x: UNLOCK\n", ci);
+#ifdef LOCK_DEBUG
+								lockmap[cbus[ci].addr]=true;
+#endif
 							}
-							/*if(((cbus[ci].addr==0x279)||(cbus[ci].addr==0x4000))&&(cbus[ci].data==0xfe))
-								fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);*/
-							//if(cbus[ci].tris==TRIS_OUT)
-							//fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
+#ifdef LOCK_DEBUG
+							if(lockmap[cbus[ci].addr])
+								fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
+#endif
 							cbus[ci].waitline=false;
 						}
 						else
