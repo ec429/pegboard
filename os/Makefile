@@ -3,7 +3,7 @@ TARGET_ASFLAGS := -z80
 TARGET_LD := z80-unknown-coff-ld
 TARGET_LDFLAGS := -T ../m80.ld
 
-TARGET_OBJS := init.zo spinlock.zo kprint.zo mem.zo errno.zo sched.zo
+TARGET_OBJS := init.zo spinlock.zo kprint.zo mem.zo errno.zo sched.zo panic.zo
 
 all: main.bin
 
