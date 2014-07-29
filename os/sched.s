@@ -9,7 +9,7 @@ createproc:
 	PUSH AF
 	LD IX,waitq_lock
 	CALL spin_lock
-	LD B,0xf8
+	LD B,8
 	LD HL,waitq
 _createproc_nextslot:
 	LD A,(HL)
@@ -18,8 +18,7 @@ _createproc_nextslot:
 	INC HL
 	INC HL
 	INC HL
-	INC B
-	JR NZ,_createproc_nextslot
+	DJNZ _createproc_nextslot
 	CALL spin_unlock
 	POP AF			; discard from stack
 	LD E,EAGAIN
