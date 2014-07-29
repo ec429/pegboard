@@ -180,9 +180,17 @@ int main(void)//int argc, char * argv[])
 								rbus[page].data=cbus[ci].data;
 							/* RAM */
 							if(rbus[page].tris==TRIS_IN)
+							{
 								rbus[page].data=ram[page][rbus[page].addr];
+							}
 							else
+							{
 								ram[page][rbus[page].addr]=rbus[page].data;
+#ifdef DEBUG_WRITES
+								if(cbus[ci].addr<0x1000)
+									fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, cbus[ci].data);
+#endif
+							}
 							/* and MMU again */
 							if(rbus[page].tris==TRIS_IN)
 							{
