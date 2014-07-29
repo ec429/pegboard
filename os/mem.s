@@ -45,9 +45,9 @@ smm_end_free_pages:
 .globl get_page		; returns page number (or 0) in A, errno in E
 get_page:
 	LD A,(IY+1)		; check PID != 0
-	CP 1
+	AND A
 	LD E,EFAULT
-	RET C
+	RET Z
 	LD IX,mem_lock
 	PUSH IX
 	CALL spin_lock
