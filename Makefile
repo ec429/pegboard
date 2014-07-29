@@ -1,11 +1,6 @@
-TARGET_AS := z80-unknown-coff-as
-TARGET_ASFLAGS := -z80
-TARGET_LD := z80-unknown-coff-ld
-TARGET_LDFLAGS := -T m80.ld
-
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
 
-all: locktest.bin m80em os/main.bin
+all: m80em os/main.bin
 
 # Rules to build the emulator
 EM_OBJS := m80em.o z80.o ops.o
@@ -19,17 +14,11 @@ m80em.o: z80.h ops.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 # Rules to build target executables
-%.bin: %.zo $(TARGET_OBJS) m80.ld
-	$(TARGET_LD) -o $@ $< $(TARGET_LDFLAGS) $(TARGET_OBJS)
-
-%.zo: %.s
-	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
-
 os/main.bin: FORCE
 	make -C os
 
 FORCE:
 
 clean:
-	-rm -f *.zo *.bin
+	-rm -f m80em *.o
 	make -C os clean
