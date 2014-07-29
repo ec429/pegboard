@@ -1,4 +1,4 @@
-init.s gets built to address 0.  All CPUs will enter it as soon as they come online; and they will all have the same SP, so it has to be careful how it uses the stack.  (Until the SP fixup, we only ever call one function - spin_lock - and we never PUSH.)  When init is done (and calls main), each CPU has its own 256-byte stack, at the top of which is a struct percpu_struct (a pointer to this is stored in IY) containing, at present, the cpuid and nothing else.  cpuid assignment is done on a first-come-first-served basis, and if all CPUs are started together their cpuids may be different on each boot.
+init.s gets built to address 0.  All CPUs will enter it as soon as they come online; and they will all have the same SP, so it has to be careful how it uses the stack.  (Until the SP fixup, we only ever call one function - spin_lock - and we never PUSH.)  When init is done (and calls main), each CPU has its own 256-byte stack, at the top of which is a struct percpu_struct (a pointer to this is stored in IY).  cpuid assignment is done on a first-come-first-served basis, and if all CPUs are started together their cpuids may be different on each boot.
 
 spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX+0)'.  It was inspired by http://u6c87.blogspot.co.uk/2011/10/atomic-instructions-on-z80-for-locking.html but that article only considers UP; for SMP the lock prefix had to be added to ensure the MMU doesn't let someone else in during our read-modify-write.  Spinlocks tend to perform poorly under contention, and this is certainly the case here; since a locked op blocks _all_ other memory traffic, a herd of CPUs trying to acquire the lock can significantly slow down the release path, leading to O(n²) thrashing.  Fortunately, it should be possible to loosen the locked-op rules while maintaining correctness, at the cost of increased MMU complexity; this could reduce the performance penalty significantly.
 
@@ -10,6 +10,12 @@ Interruptible and Uninterruptible both mean we're blocked in the kernel.
 struct process { byte pid; enum status_t status; byte basepage; } runq[8], waitq[8];
 I did wonder if we needed to save the registers in struct process as well, but in fact we can save them on the kernel stack, which will be on the basepage, along with other per-process data such as page allocations.
 pid 0 represents "no process".
+
+Process stack page layout:
+	0000: Saved SP (word)
+	0002: VM maps (byte[4])
+	0006:
+	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX IY and save SP (we do not save shadow registers).
 
 Next steps:
 	Implement a scheduler, and some sleeping locks (semaphores).

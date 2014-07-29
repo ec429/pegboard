@@ -17,24 +17,17 @@ main:
 	LD IX,kprint_lock
 	CALL spin_unlock
 ; scheduler test
-	LD A,1
-stest:
-	INC A
-	PUSH AF
+	LD A,2
 	CALL createproc
 	LD HL,STR_createproc
 	CALL C,perror
-	POP AF
-	CP 0x0c
-	JR NZ,stest
-; finished
-	POP AF
 	LD HL,STR_finished
 	CALL kputs
 	HALT
 
 cpu0_setup:
 	CALL setup_mem_map
+	CALL setup_scheduler
 	LD HL,can_start_other_cpus
 	LD (HL),1
 	RET
