@@ -29,12 +29,22 @@ _createproc_foundslot:
 	LD (HL),A
 	INC HL
 	LD (HL),TASK_UNINTERRUPTIBLE
+	PUSH HL
+	CALL get_page	; assign stack page
+	POP HL
+	JR C,_createproc_fail1
 	INC HL
-	LD (HL),NOPAGE
+	LD (HL),A
 	LD IX,waitq_lock
 	CALL spin_unlock
 	LD E,0
 	AND A			; clear carry
+	RET
+_createproc_fail1:
+	DEC HL
+	LD (HL),0
+	LD IX,waitq_lock
+	CALL spin_unlock
 	RET
 
 .data
