@@ -12,11 +12,11 @@ setup_mem_map:
 	LD HL,mem_free
 	LDIR
 	LD C,0x05
-	LD B,2
+	LD B,1
 	LD D,B
-	LD HL,0x8000
+	LD HL,0x4000
 smm_next_page:
-	OUT (C),D		; set pi 2 to page D
+	OUT (C),D		; set pi 1 to page D
 	XOR A
 	LD (HL),A
 	LD A,(HL)
@@ -26,13 +26,27 @@ smm_next_page:
 	INC D
 	JR NZ,smm_next_page
 smm_end_free_pages:
+	PUSH DE
 	CALL spin_unlock
+	LD IX,kprint_lock
+	CALL spin_lock
 	LD HL,mem_map_ready
-	CALL kputs
+	CALL kputs_unlocked
+	LD HL,mem_size_1
+	CALL kputs_unlocked
+	POP AF
+	CALL kprint_hex_unlocked
+	LD HL,mem_size_2
+	CALL kputs_unlocked
+	CALL spin_unlock
 	RET
 
 .globl get_page		; returns page number (or 0) in A, errno in E
 get_page:
+	LD A,(IY+1)		; check PID != 0
+	CP 1
+	LD E,EFAULT
+	RET C
 	LD IX,mem_lock
 	PUSH IX
 	CALL spin_lock
@@ -42,7 +56,7 @@ get_page:
 	LD E,ENOMEM
 	JR Z,gp_fail
 	DEC (IX+0)
-	LD D,1
+	LD D,0
 gp_next_page:
 	INC IX
 	INC D
@@ -82,7 +96,7 @@ gp_fail:
 
 .globl free_page	; frees page A, if owned by current PID.  errno in E
 free_page:
-	CP 2
+	CP 1
 	LD E,EINVAL
 	RET C
 	LD D,(IY+1)		; PID
@@ -130,13 +144,16 @@ fp_fail:
 ; debugging strings
 mem_map_ready: .ascii "Memory map ready"
 .byte 0x0a,0
+mem_size_1: .asciz "Found 0x"
+mem_size_2: .ascii " pages"
+.byte 0x0a,0
 got_page_1: .asciz "Process "
 freed_page_1 equ got_page_1
 got_page_2: .asciz " got page "
 freed_page_2: .asciz " freed page "
-
-.section mem_page
-.org 0
+; allocation state
 mem_lock: .byte 0xfe
-mem_free: .byte 0
-mem_map: .skip 254
+mem_free: .byte 0	; mustn't be in .bss as we depend on it being mem_lock+1
+
+.bss
+mem_map: .skip 255
