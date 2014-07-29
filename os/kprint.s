@@ -23,6 +23,7 @@ kputs_prepare:
 	LD A,C
 	NEG
 	LD B,A
+	DEC B			; don't write the NUL
 	LD C,0x10
 	RET
 
