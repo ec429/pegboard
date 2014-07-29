@@ -16,16 +16,14 @@ kputc_unlocked:
 kputs_prepare:
 	LD BC,0x100
 	PUSH HL
-	POP IX
 	XOR A
 	CPIR
+	POP HL
 	RET NZ
 	LD A,C
 	NEG
 	LD B,A
 	LD C,0x10
-	PUSH IX
-	POP HL
 	RET
 
 .globl kputs		; write string (at HL) to terminal; max length 256
