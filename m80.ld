@@ -5,7 +5,9 @@ MEMORY {
    initprog : ORIGIN = 0x0, LENGTH = 0x40
    program : ORIGIN = 0x40, LENGTH = 0x3bc0
    isr : ORIGIN = 0x3c00, LENGTH = 0x400
-   mem_page : ORIGIN = 0x4000 LENGTH = 0x4000
+   page1 : ORIGIN = 0x4000 LENGTH = 0x4000
+   page2 : ORIGIN = 0x8000 LENGTH = 0x4000
+   page3 : ORIGIN = 0xC000 LENGTH = 0x4000
 }
 SECTIONS
 {
@@ -29,8 +31,16 @@ SECTIONS
 		*(.data)
 		*(data)
 		} > program
-.mem_page : {
-		*(.mem_page)
-		*(mem_page)
-		} > mem_page
+.page1 : {
+		*(.page1)
+		*(page1)
+		} > page1
+.page2 : {
+		*(.page2)
+		*(page2)
+		} > page2
+.page3 : {
+		*(.page3)
+		*(page3)
+		} > page3
 }
