@@ -7,9 +7,10 @@ setup_mem_map:
 	LD IX,mem_lock
 	CALL spin_lock
 	LD (IX+1),0
-	LD BC,0xfe
-	LD DE,mem_map
-	LD HL,mem_free
+	LD BC,0xfd
+	LD DE,mem_map+1
+	LD HL,mem_map
+	LD (HL),0
 	LDIR
 	LD C,0x05
 	LD B,1
@@ -50,13 +51,13 @@ get_page:
 	LD IX,mem_lock
 	PUSH IX
 	CALL spin_lock
-	INC IX			; mem_free
-	LD A,(IX+0)
+	LD A,(IX+1)
 	AND A
 	LD E,ENOMEM
 	JR Z,gp_fail
-	DEC (IX+0)
+	DEC (IX+1)
 	LD D,0
+	LD IX,mem_map-1
 gp_next_page:
 	INC IX
 	INC D
@@ -152,6 +153,7 @@ freed_page_1 equ got_page_1
 got_page_2: .asciz " got page "
 freed_page_2: .asciz " freed page "
 ; allocation state
+.globl mem_lock
 mem_lock: .byte 0xfe
 mem_free: .byte 0	; mustn't be in .bss as we depend on it being mem_lock+1
 
