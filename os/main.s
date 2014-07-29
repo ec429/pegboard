@@ -2,8 +2,6 @@
 
 .globl main			; per-CPU OS entry point.  Does not return
 main:
-	LD A,1
-	OUT (0x05),A	; set pi 1 to page 1
 	LD A,(IY+0)
 	AND A
 	CALL Z,cpu0_setup
@@ -25,7 +23,7 @@ stest:
 	PUSH AF
 	CALL createproc
 	LD HL,STR_createproc
-	CALL perror
+	CALL C,perror
 	POP AF
 	CP 0x0c
 	JR NZ,stest

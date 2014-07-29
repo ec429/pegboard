@@ -30,6 +30,8 @@ start_main:
 
 .data
 cpuindex_lock: .byte 0xfe
+
+.bss
 cpuindex: .byte 0
 .globl can_start_other_cpus
 can_start_other_cpus: .byte 0

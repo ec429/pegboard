@@ -21,8 +21,9 @@ _createproc_nextslot:
 	INC B
 	JR NZ,_createproc_nextslot
 	CALL spin_unlock
-	POP BC
+	POP AF			; discard from stack
 	LD E,EAGAIN
+	SCF
 	RET
 _createproc_foundslot:
 	POP AF
@@ -33,11 +34,15 @@ _createproc_foundslot:
 	LD (HL),NOPAGE
 	LD IX,waitq_lock
 	CALL spin_unlock
+	LD E,0
+	AND A			; clear carry
 	RET
 
 .data
 .globl runq_lock, waitq_lock
 runq_lock: .byte 0xfe
-runq: .skip 24
 waitq_lock: .byte 0xfe
+
+.bss
+runq: .skip 24
 waitq: .skip 24
