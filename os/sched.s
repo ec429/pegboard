@@ -4,6 +4,29 @@
 
 .text
 
+.macro spswap		; swaps SP with [MEM_SAVESP]
+	LD HL,0
+	ADD HL,SP
+	LD SP,(MEM_SAVESP)
+	LD (MEM_SAVESP),HL
+.endm
+
+newproc_entry:
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,enter_proc_1
+	CALL kputs_unlocked
+	LD A,(IX+0)
+	CALL kprint_hex_unlocked
+	LD HL,enter_proc_2
+	CALL kputs_unlocked
+	LD A,(IX+1)
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	CALL panic		; Haven't yet written a process loader
+
 .globl createproc	; adds new process to tail of waitqueue, returns new pid in A.  errno in E
 createproc:
 	LD IX,waitq_lock
@@ -51,11 +74,19 @@ _createproc_gotpid:
 	LD A,(HL)
 	LD BC,0x0105
 	OUT (C),A		; page in stack at pi 1
-	LD HL,MEM_SAVESP; set the stack pointer to 0x8000 (top of page 1)
-	LD (HL),0
-	INC HL
-	LD (HL),0x80
-	INC HL
+	LD HL,0x8000	; set the stack pointer to 0x8000 (top of page 1)
+	LD (MEM_SAVESP),HL
+	SPSWAP
+	LD HL,newproc_entry; Stack slot for PC
+	PUSH HL
+	LD HL,0			; Stack slots for AF BC DE HL IX IY.  Fill all (except IY=&percpu_struct) with 0
+	PUSH HL
+	PUSH HL
+	PUSH HL
+	PUSH HL
+	PUSH HL
+	PUSH IY
+	SPSWAP
 	LD (HL),NOPAGE	; fill in the vm_map with zeroes
 	PUSH HL
 	POP DE
@@ -187,6 +218,8 @@ waitq_lock: .byte 0xfe
 nextpid_lock: .byte 0xfe ; also guards pid_map
 nextpid: .byte 2
 got_proc_1: .asciz "Created process "
+enter_proc_1: .asciz "CPU #"
+enter_proc_2: .asciz " entered process "
 
 .bss
 runq: .skip 24

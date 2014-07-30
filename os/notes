@@ -17,6 +17,11 @@ Process stack page layout:
 	0006:
 	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX IY and save SP (we do not save shadow registers).
 
+*** At the moment, we have a 'createproc' function, but the created process has no mappings, and its stack just says to run newproc_entry.  This is a spawn() as opposed to a fork(); would we prefer the latter? ***
+*** To make this decision, and a few others too, it would help to have some idea of what I intend to use this OS for... or at least, what kind of programs I'd like to be able to write for it. ***
+*** Note that if we wanted to use fork() semantics, init would have to be a full process with its own stack page, instead of just having a per-cpu mini-stack as it does now - while the mini-stack would still be used by the scheduler! ***
+*** Other fork() requirements: permission bits on pages, page faults (for COW) ***
+
 Next steps:
 	Implement a scheduler, and some sleeping locks (semaphores).
 	Implement a kmalloc/kfree (using page 1 as the arena).
