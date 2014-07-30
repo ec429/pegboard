@@ -3,13 +3,13 @@ TARGET_ASFLAGS := -z80
 TARGET_LD := z80-unknown-coff-ld
 TARGET_LDFLAGS := -T ../m80.ld
 
-TARGET_OBJS := init.zo spinlock.zo kprint.zo mem.zo errno.zo sched.zo panic.zo
+TARGET_OBJS := init.zo main.zo spinlock.zo kprint.zo mem.zo errno.zo sched.zo panic.zo
 
-all: main.bin
+all: kernel.bin
 
 # Rules to build target executables
-main.bin: main.zo $(TARGET_OBJS) ../m80.ld
-	$(TARGET_LD) -o $@ main.zo $(TARGET_LDFLAGS) $(TARGET_OBJS) -Map main.sym
+kernel.bin: $(TARGET_OBJS) ../m80.ld
+	$(TARGET_LD) -o $@ $(TARGET_LDFLAGS) $(TARGET_OBJS) -Map main.sym
 
 sched.s: sched.inc mem.inc
 

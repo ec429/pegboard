@@ -15,7 +15,7 @@
 #include "ops.h"
 #include "z80.h"
 
-#define NR_CPUS		1
+#define NR_CPUS		2
 #define NR_PAGES	64
 
 typedef uint8_t ram_page[16384];
@@ -28,7 +28,7 @@ typedef struct
 }
 mmu_t;
 
-#define PROGRAM	"os/main.bin"
+#define PROGRAM	"os/kernel.bin"
 
 #define IO_MMU		0x05
 #define	 MM_SETPAGE	0x00
