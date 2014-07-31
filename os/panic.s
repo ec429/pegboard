@@ -14,6 +14,16 @@ panic:
 	CALL kprint_hex_unlocked
 	LD HL,panic_msg_3
 	CALL kputs_unlocked
+	LD HL,0
+	ADD HL,SP
+	PUSH HL
+	LD A,H
+	CALL kprint_hex_unlocked
+	POP HL
+	LD A,L
+	CALL kprint_hex_unlocked
+	LD HL,panic_msg_4
+	CALL kputs_unlocked
 	LD B,0x10		; number of stack entries to print
 _panic_stack_loop:
 	POP HL
@@ -24,7 +34,7 @@ _panic_stack_loop:
 	LD A,0x0a
 	CALL kputc_unlocked
 	DJNZ _panic_stack_loop
-	LD HL,panic_msg_4
+	LD HL,panic_msg_5
 	CALL kputs_unlocked
 	CALL spin_unlock
 	DI
@@ -35,7 +45,7 @@ panic_msg_1: .asciz "KERNEL PANIC on CPU #"
 panic_msg_2: .asciz " (pid="
 panic_msg_3: .ascii "), halting."
 .byte 0x0a
-.ascii "Stack:"
-.byte 0x0a,0
-panic_msg_4: .ascii "cut here: ------8<------"
+.asciz "Stack @0x"
+panic_msg_4: .byte ':',0x0a,0
+panic_msg_5: .ascii "cut here: ------8<------"
 .byte 0x0a,0
