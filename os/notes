@@ -2,7 +2,7 @@ init.s gets built to address 0.  All CPUs will enter it as soon as they come onl
 
 spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX+0)'.  It was inspired by http://u6c87.blogspot.co.uk/2011/10/atomic-instructions-on-z80-for-locking.html but that article only considers UP; for SMP the lock prefix had to be added to ensure the MMU doesn't let someone else in during our read-modify-write.  Spinlocks tend to perform poorly under contention, and this is certainly the case here; since a locked op blocks _all_ other memory traffic, a herd of CPUs trying to acquire the lock can significantly slow down the release path, leading to O(n²) thrashing.  Fortunately, it should be possible to loosen the locked-op rules while maintaining correctness, at the cost of increased MMU complexity; this could reduce the performance penalty significantly.
 
-Allocation bitmap is stored in page 1: up to 254 bytes starting at offset 2, each containing the PID of the page owner (or 0 for free pages).  While at offset 0 we have the lock, and at offset 1 the number of free pages.
+Allocations are stored in a bitmap char mem_map[255], where mem_map[i] contains the PID of the owner of page (i+1) (or 0 for free pages).  Page 0 is always owned by the kernel (and incidentally, contains the mem_map bitmap).  We also have the lock (spinlock_t mem_lock), and the number of free pages (char mem_free).  If there are less than 256 pages of memory attached, let's say there are 64, then only the first 63 bytes of mem_map are meaningful, and mem_free only counts 0s in those 63 bytes.  This means that, by (a) only allocating a page if mem_free > 0 and (b) always allocating the lowest-numbered available page, only pages that are attached will ever be allocated.
 
 For now, scheduling is based on a simple run-queue; any process which expires its time-slice gets added to the tail; and the next process to run is popped from the head.  Until we have kmalloc (and can use a linked-list), the queue will be a fixed 8-slot allocation (so this will be our max. number of processes).
 enum status_t {
@@ -17,7 +17,7 @@ I did wonder if we needed to save the registers in struct process as well, but i
 pid 0 represents "no process".
 
 Process stack page layout:
-	0000: Saved SP (word)
+	0000: Saved SP (word).  Perhaps we could save IY here while process is running, so that we can always get it back when we schedule.
 	0002: VM maps (byte[4])
 	0006:
 	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX and save SP (we do not save shadow registers, nor IY which should always point to the percpu_struct).
