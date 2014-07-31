@@ -1142,6 +1142,7 @@ int z80_tstep(z80 *cpu, bus_t *bus, int errupt)
 									break;
 									case 7: // x3 z3 y7 == EI: M1=IO(0)
 										cpu->IFF[0]=cpu->IFF[1]=true;
+										cpu->block_ints=true;
 										cpu->M=0;
 									break;
 									default: // x3 z3 y?

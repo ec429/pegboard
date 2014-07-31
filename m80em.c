@@ -104,7 +104,6 @@ int main(void)//int argc, char * argv[])
 				if(cpu[ci].intacc)
 				{
 					cbus[ci].data=irq[ci];
-					fprintf(stderr, "%02x: took interrupt %02x\n", ci, irq[ci]);
 					irq[ci]=0;
 				}
 			}
@@ -273,7 +272,7 @@ int main(void)//int argc, char * argv[])
 		/* Check for hw stopped (everyone DI HALT, eg. after panic()) */
 		work_to_do=false;
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
-			if(cpu[ci].IFF[0]||!cpu[ci].halt)
+			if(cpu[ci].IFF[0]||!cpu[ci].halt||cpu[ci].intacc)
 				work_to_do=true;
 		if(!work_to_do)
 		{
@@ -281,7 +280,7 @@ int main(void)//int argc, char * argv[])
 			for(uint8_t ci=0;ci<NR_CPUS;ci++)
 			{
 				uint16_t pc=cpu[ci].regs[0]|(cpu[ci].regs[1]<<8);
-				fprintf(stderr, "%02x: PC = %04x\n", ci, pc);
+				fprintf(stderr, "%02x: PC = %04x, IFF %d %d\n", ci, pc, cpu[ci].IFF[0], cpu[ci].IFF[1]);
 			}
 			break;
 		}

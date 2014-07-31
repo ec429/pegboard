@@ -2,6 +2,8 @@
 
 .globl main			; per-CPU OS entry point.  Does not return
 main:
+	LD A,0x1f		; set intvec = 0x1f
+	LD I,A
 ; we are now online
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -17,8 +19,9 @@ main:
 	AND A
 	JR Z,cpu0_setup
 	EI
+_main_idle:
 	HALT
-	JR _main_never
+	JR _main_idle
 cpu0_setup:
 	CALL setup_mem_map
 	CALL setup_scheduler
@@ -38,8 +41,6 @@ _main_never:
 	RET
 
 setup_interrupts:
-	LD A,0x1f		; set intvec = 0x1f
-	LD I,A
 	LD HL,0x1f00	; fill interrupt table with 0x1c1c (unhandled IRQ)
 	LD (HL),0x1c
 	LD BC,0xff
@@ -58,6 +59,7 @@ INT_timer:			; handler for timer interrupt
 	AND A
 	JR Z,_int_timer_schedule
 	EX AF,AF'		; a process is already running, let it continue
+	EI
 	RETI			; we will have a proper scheduler eventually, but not yet
 _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a process, so we can trash regs)
 	EX AF,AF'
@@ -70,11 +72,10 @@ _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a 
 _int_timer_noproc:	; no process found, so just return
 	LD IX,runq_lock
 	CALL spin_unlock
+	EI
 	RETI
 
 .data
-STR_stest: .ascii "stest"
-.byte 0x0a,0
 STR_do_fork: .asciz "do_fork"
 STR_finished: .ascii "main() exited!"
 .byte 0x0a,0
