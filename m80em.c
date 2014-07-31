@@ -43,7 +43,7 @@ mmu_t;
 
 #define TTY_BUF_LEN	128
 
-#define FRAME_LEN	70000 /* 1/50 of a second at 3.5MHz */
+#define FRAME_LEN	350000 /* 1/10 of a second at 3.5MHz */
 
 int main(void)//int argc, char * argv[])
 {
@@ -97,13 +97,17 @@ int main(void)//int argc, char * argv[])
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
 			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
-			if(T==(ci<<10))
+			if(T==(((int32_t)ci)<<12))
+			{
 				irq[ci]=IO_TIMER;
+				//fprintf(stderr, "Raised IRQ_TIMER on %u\n", ci);
+			}
 			if((cbus[ci].irq=irq[ci]))
 			{
 				if(cpu[ci].intacc)
 				{
 					cbus[ci].data=irq[ci];
+					//fprintf(stderr, "Acknowledged IRQ %u on %u\n", irq[ci], ci);
 					irq[ci]=0;
 				}
 			}
