@@ -76,11 +76,12 @@ int main(void)//int argc, char * argv[])
 	int tty_buf_wp=0, tty_buf_rp=0;
 	int tty_T=0;
 	int errupt=0;
-	int T=0, maxT=1<<24;
+	int T=0;
 #ifdef LOCK_DEBUG
 	bool lockmap[32768];
 #endif
 	bool can_progress; // _someone_ isn't WAITed
+	bool work_to_do; // _someone_ isn't DI HALT
 	while(!errupt)
 	{
 		if(!irq[tty_owner] && (tty_buf_wp!=tty_buf_rp))
@@ -254,7 +255,22 @@ int main(void)//int argc, char * argv[])
 				}
 			break;
 		}
-		if(T++>=maxT) break;
+		/* Check for hw stopped (everyone DI HALT, eg. after panic()) */
+		work_to_do=false;
+		for(uint8_t ci=0;ci<NR_CPUS;ci++)
+			if(cpu[ci].IFF[0]||!cpu[ci].halt)
+				work_to_do=true;
+		if(!work_to_do)
+		{
+			fprintf(stderr, "Powerdown!\n");
+			for(uint8_t ci=0;ci<NR_CPUS;ci++)
+			{
+				uint16_t pc=cpu[ci].regs[0]|(cpu[ci].regs[1]<<8);
+				fprintf(stderr, "%02x: PC = %04x\n", ci, pc);
+			}
+			break;
+		}
+		T++;
 	}
 	return(0);
 }
