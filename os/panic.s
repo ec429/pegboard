@@ -24,7 +24,17 @@ panic:
 	CALL kprint_hex_unlocked
 	LD HL,panic_msg_4
 	CALL kputs_unlocked
-	LD B,0x10		; number of stack entries to print
+	LD B,0x10		; max. number of stack entries to print
+	XOR A			; make sure carry is clear
+	LD HL,0x8000
+	SBC HL,SP
+	CP H
+	JR NZ,_panic_stack_loop; we've got at least 128 items, so we're fine
+	SRL L			; 2 bytes per stack item.  L is now stack depth in items
+	LD A,L
+	CP B
+	JR NC,_panic_stack_loop; stack depth exceeds B, so we're fine
+	LD B,A			; only print as much stack as we have
 _panic_stack_loop:
 	POP HL
 	LD A,H
