@@ -1,6 +1,7 @@
 .section init, "rx"
 	DI
-	LD D,1
+	IM 2
+	LD D,0			; initially, we're not running in any process
 	LD HL,cpuindex
 	LD IX,cpuindex_lock
 	CALL spin_lock

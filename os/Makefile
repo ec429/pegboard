@@ -12,7 +12,7 @@ kernel.bin: $(TARGET_OBJS) ../m80.ld
 	$(TARGET_LD) -o $@ $(TARGET_LDFLAGS) $(TARGET_OBJS) -Map main.sym
 
 sched.zo: sched.inc mem.inc flags.inc
-mem.zo: flags.inc
+mem.zo: mem.inc flags.inc
 
 %.zo: %.s errno.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@

@@ -1,4 +1,5 @@
 NOPAGE equ 0
+IO_MMU equ 0x04
 
 ; process stack page addresses
 MEM_SAVESP equ 0x4000

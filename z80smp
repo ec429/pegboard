@@ -34,9 +34,9 @@ A15/A14 are page selectors (so each CPU has four virtual pages, and each page is
 Reading from a nonexistent page produces 0xff (and writing of course has no effect).
 This scheme allows for a maximum of 256 × 16kB pages, that is a total of 4MB.  (Phrased another way, full physical addresses are 24 bits.)
 
-The paging is controlled through I/O port 0x05.  The command is given in A15-A10, the virtual page in A9-A8, and the physical page in the data byte.
+The paging is controlled through I/O port 0x04.  The command is given in A15-A10, the virtual page in A9-A8, and the physical page in the data byte.
 MSB<15|14|13|12|11|10|09|08|07|06|05|04|03|02|01|00>LSB
-   <     command     |vpage| 0| 0| 0| 0| 0| 1| 0| 1>
+   <     command     |vpage| 0| 0| 0| 0| 0| 1| 0| 0>
 Commands:
 	Mnemonic	Command	Dir	Description
 	MM_SETPAGE	0x00	W	Map in ppage at the given vpage.
@@ -45,3 +45,8 @@ Commands:
 TERMINAL I/O
 
 The serial terminal is attached on I/O port 0x10, and assigned the corresponding IRQ.  Writing a byte to this port sends it to the terminal.  A CPU writing 0x10 to port 0 (the shared I/O control port) claims the IRQ.  When a character is ready to read from the terminal, the IRQ is asserted; an IN from 0x10 pops a byte from the buffer, and if this empties the buffer the IRQ will be cleared.
+
+TIMER INTERRUPT
+
+The timer is on IRQ 2, and interrupts every 70,000 clock cycles (this is 50 times per second at a 3.5MHz clock speed).
+The interrupts are staggered across CPUs, spaced 1024 clock cycles apart.

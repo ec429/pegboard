@@ -30,12 +30,20 @@ mmu_t;
 
 #define PROGRAM	"os/kernel.bin"
 
-#define IO_MMU		0x05
-#define	 MM_SETPAGE	0x00
-#define	 MM_GETPAGE	0x01
+#define IO_TIMER	0x02
+#define IO_MMU		0x04
+#define	 MM_SETPAGE	 0x00
+#define	 MM_GETPAGE	 0x01
 #define IO_TERMINAL	0x10
 
+#define interrupt(ci, _irq)	do { \
+	if (!irq[ci] || _irq < irq[ci]) \
+		irq[ci]=_irq;\
+	} while(0);
+
 #define TTY_BUF_LEN	128
+
+#define FRAME_LEN	70000 /* 1/50 of a second at 3.5MHz */
 
 int main(void)//int argc, char * argv[])
 {
@@ -84,14 +92,21 @@ int main(void)//int argc, char * argv[])
 	bool work_to_do; // _someone_ isn't DI HALT
 	while(!errupt)
 	{
-		if(!irq[tty_owner] && (tty_buf_wp!=tty_buf_rp))
-			irq[tty_owner]=IO_TERMINAL;
+		if(tty_buf_wp!=tty_buf_rp)
+			interrupt(tty_owner, IO_TERMINAL);
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
+			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
+			if(T==(ci<<10))
+				irq[ci]=IO_TIMER;
 			if((cbus[ci].irq=irq[ci]))
 			{
 				if(cpu[ci].intacc)
+				{
 					cbus[ci].data=irq[ci];
+					fprintf(stderr, "%02x: took interrupt %02x\n", ci, irq[ci]);
+					irq[ci]=0;
+				}
 			}
 			if((errupt=z80_tstep(&cpu[ci], &cbus[ci], errupt))) break;
 			/* IO devices */
@@ -145,7 +160,7 @@ int main(void)//int argc, char * argv[])
 							tty_buf_rp%=TTY_BUF_LEN;
 						}
 					}
-					else if(T>tty_T+1)
+					else if(T!=((tty_T+1)%FRAME_LEN))
 					{
 						putchar(cbus[ci].data);
 						tty_T=T;
@@ -270,7 +285,8 @@ int main(void)//int argc, char * argv[])
 			}
 			break;
 		}
-		T++;
+		if(++T>=FRAME_LEN)
+			T-=FRAME_LEN;
 	}
 	return(0);
 }

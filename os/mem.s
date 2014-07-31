@@ -1,4 +1,5 @@
 .include "errno.inc"
+.include "mem.inc"
 .include "flags.inc"
 
 .text
@@ -13,7 +14,7 @@ setup_mem_map:
 	LD HL,mem_map
 	LD (HL),0
 	LDIR
-	LD C,0x05
+	LD C,IO_MMU
 	LD B,1
 	LD D,B
 	LD HL,0x4000

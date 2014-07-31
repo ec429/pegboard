@@ -12,7 +12,7 @@
 	LD (MEM_SAVESP),HL
 .endm
 
-.globl sched_choose	; returns (in HL) a runnable process from the runq, or halts until there is one.  Caller must hold runq_lock (but it won't be held throughout lifetime of this function)
+.globl sched_choose	; returns (in HL) a runnable process from the runq, if there is one, else carry flag.  Caller must hold runq_lock
 sched_choose:
 	LD HL,runq+1
 	LD B,8
@@ -35,8 +35,8 @@ _sched_choose_nextslot:
 	CALL kputc_unlocked
 	CALL spin_unlock
 .endif
-	HALT			; wait
-	JR sched_choose ; and try again
+	SCF
+	RET
 _sched_choose_found:
 	DEC HL
 .ifdef DEBUG
@@ -58,6 +58,7 @@ _sched_choose_found:
 	CALL spin_unlock
 	POP HL
 .endif
+	AND A			; clear carry flag
 	RET
 
 .globl sched_enter	; starts running pid A (doesn't save current state).  Releases: runq_lock
@@ -74,7 +75,7 @@ sched_enter:
 					; now it's safe to release runq_lock
 	LD IX,runq_lock
 	CALL spin_unlock
-	LD BC,0x0105
+	LD BC,0x0100|IO_MMU
 	OUT (C),D
 	LD SP,(MEM_SAVESP)
 	POP IX
@@ -82,6 +83,7 @@ sched_enter:
 	POP DE
 	POP BC
 	POP AF
+	EI				; process must have had interrupts enabled before, because it got pre-empted (or it'd still be running)
 	RET
 
 find_q_slot:		; finds an empty slot on the runq.  Caller must hold runq_lock
@@ -137,7 +139,7 @@ _do_fork_gotpid:
 	CALL spin_unlock
 					; copy stack page
 	LD A,(HL)
-	LD BC,0x0205
+	LD BC,0x0200|IO_MMU
 	OUT (C),A		; page in stack at pi 2
 	LD HL,0x4000
 	PUSH HL
@@ -266,6 +268,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LD HL,pid_map
 	LD (HL),0x3		; pid 0 is unusable, pid 1 is init
 					; create init process
+	LD (IY+1),1		; mark our running process as init, so we can get_page
 	LD IX,runq
 	LD (IX+0),1
 	LD (IX+1),TASK_RUNNABLE
@@ -275,7 +278,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	AND A
 	CALL Z,panic	; ... so let's give up now
 	LD (IX+2),A
-	LD BC,0x0105
+	LD BC,0x0100|IO_MMU
 	OUT (C),A		; page in init's stack page at pi=1
 	LD HL,0x8000	; set the stack pointer to 0x8000 (top of page 1)
 	LD (MEM_SAVESP),HL
@@ -318,7 +321,7 @@ exec_init:
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
-.globl runq_lock, nextpid_lock,got_proc_1
+.globl runq_lock, nextpid_lock
 runq_lock: .byte 0xfe
 nextpid_lock: .byte 0xfe ; also guards pid_map
 nextpid: .byte 2
