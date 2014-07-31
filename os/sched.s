@@ -79,6 +79,7 @@ sched_enter:
 	LD BC,0x0100|IO_MMU
 	OUT (C),D
 	LD SP,(MEM_SAVESP)
+	LD (MEM_SAVESP),IY
 	POP IX
 	POP HL
 	POP DE

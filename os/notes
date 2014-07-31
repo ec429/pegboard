@@ -17,7 +17,7 @@ I did wonder if we needed to save the registers in struct process as well, but i
 pid 0 represents "no process".
 
 Process stack page layout:
-	0000: Saved SP (word).  Perhaps we could save IY here while process is running, so that we can always get it back when we schedule.
+	0000: Saved SP (word).  While process is running, instead contains saved IY, the &percpu_struct for the CPU it's running on
 	0002: VM maps (byte[4])
 	0006:
 	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX and save SP (we do not save shadow registers, nor IY which should always point to the percpu_struct).
