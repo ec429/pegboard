@@ -169,6 +169,7 @@ int z80_tstep(z80 *cpu, bus_t *bus, int errupt)
 						switch(cpu->dT)
 						{
 							case 0:
+							case 1:
 								bus->addr=*PC;
 								bus->m1=true;
 							break;
