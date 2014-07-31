@@ -1,6 +1,7 @@
 .include "sched.inc"
 .include "mem.inc"
 .include "errno.inc"
+.include "flags.inc"
 
 .text
 
@@ -23,7 +24,7 @@ _sched_choose_nextslot:
 	INC HL
 	INC HL
 	DJNZ _sched_choose_nextslot
-;#ifdef DEBUG
+.ifdef DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,sched_waiting
@@ -33,12 +34,12 @@ _sched_choose_nextslot:
 	LD A,0x0a
 	CALL kputc_unlocked
 	CALL spin_unlock
-;#endif
+.endif
 	HALT			; wait
 	JR sched_choose ; and try again
 _sched_choose_found:
 	DEC HL
-;#ifdef DEBUG
+.ifdef DEBUG
 	PUSH HL
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -56,7 +57,7 @@ _sched_choose_found:
 	CALL kputc_unlocked
 	CALL spin_unlock
 	POP HL
-;#endif
+.endif
 	RET
 
 .globl sched_enter	; starts running pid A (doesn't save current state).  Releases: runq_lock
@@ -153,7 +154,7 @@ _do_fork_gotpid:
 	LD (HL),TASK_RUNNABLE
 	CALL spin_unlock
 	POP AF
-;#ifdef DEBUG
+.ifdef DEBUG
 	PUSH AF
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -166,7 +167,7 @@ _do_fork_gotpid:
 	CALL kputc_unlocked
 	CALL spin_unlock
 	POP AF
-;#endif
+.endif
 	LD E,0
 	RET
 _do_fork_fail1:
@@ -299,6 +300,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 
 .globl exec_init
 exec_init:
+.ifdef DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,exec_init_1
@@ -312,6 +314,7 @@ exec_init:
 	LD A,0x0a
 	CALL kputc_unlocked
 	CALL spin_unlock
+.endif
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
@@ -319,12 +322,14 @@ exec_init:
 runq_lock: .byte 0xfe
 nextpid_lock: .byte 0xfe ; also guards pid_map
 nextpid: .byte 2
+.ifdef DEBUG
 got_proc_1: .asciz "Created process "
 exec_init_1: .asciz "CPU #"
 exec_init_2: .asciz " started init, pid="
 sched_chose_1: .asciz "pid "
 sched_chose_2: .asciz " scheduled on CPU "
 sched_waiting: .asciz "No process runnable on CPU "
+.endif
 
 .bss
 runq: .skip 24

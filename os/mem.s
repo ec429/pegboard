@@ -1,4 +1,5 @@
 .include "errno.inc"
+.include "flags.inc"
 
 .text
 
@@ -69,7 +70,7 @@ gp_next_page:
 	POP IX
 	CALL spin_unlock
 	PUSH DE
-;#ifdef DEBUG
+.ifdef DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,got_page_1
@@ -85,7 +86,7 @@ gp_next_page:
 	CALL kputc_unlocked
 	LD IX,kprint_lock
 	CALL spin_unlock
-;#endif
+.endif
 	LD E,0
 	POP AF
 	RET
@@ -115,7 +116,7 @@ free_page:
 	POP IX
 	INC (IX+1)		; mem_free
 	CALL spin_unlock
-;#ifdef DEBUG
+.ifdef DEBUG
 	PUSH BC
 	PUSH DE
 	LD IX,kprint_lock
@@ -133,7 +134,7 @@ free_page:
 	CALL kputc_unlocked
 	LD IX,kprint_lock
 	CALL spin_unlock
-;#endif
+.endif
 	LD E,0
 	RET
 fp_fail:
@@ -148,10 +149,12 @@ mem_map_ready: .ascii "Memory map ready"
 mem_size_1: .asciz "Found 0x"
 mem_size_2: .ascii " pages"
 .byte 0x0a,0
+.ifdef DEBUG
 got_page_1: .asciz "Process "
 freed_page_1 equ got_page_1
 got_page_2: .asciz " got page "
 freed_page_2: .asciz " freed page "
+.endif
 ; allocation state
 .globl mem_lock
 mem_lock: .byte 0xfe
