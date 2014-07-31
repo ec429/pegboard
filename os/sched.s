@@ -125,7 +125,7 @@ _do_fork_unlock_out:
 	RET
 _do_fork_gotpid:
 	POP HL
-	PUSH AF			; stash pid
+	PUSH AF			; stash child pid
 	LD (HL),A
 	INC HL
 	LD (HL),TASK_UNINTERRUPTIBLE
@@ -138,6 +138,7 @@ _do_fork_gotpid:
 	LD (HL),A		; assign stack page
 	LD IX,runq_lock
 	CALL spin_unlock
+	POP BC			; retrieve child pid
 	DI				; put process image into a schedulable state before copying
 	XOR A			; ensure child returns 0 from fork()
 	PUSH AF
@@ -162,6 +163,7 @@ _do_fork_gotpid:
 	POP BC
 	POP AF
 	EI
+	PUSH BC			; stash child pid again
 	LD IX,runq_lock
 	CALL spin_lock
 	POP AF			; A=pid, carry flag will be clear
@@ -336,7 +338,7 @@ exec_init:
 	CALL spin_unlock
 .endif
 	CALL do_fork
-	CALL kprint_hex	; show value of A register
+	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
 	DI
 	HALT
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
