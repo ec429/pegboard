@@ -58,6 +58,7 @@ _sched_choose_found:
 	CALL spin_unlock
 	POP HL
 .endif
+	LD A,(HL)		; pid
 	AND A			; clear carry flag
 	RET
 
@@ -137,6 +138,14 @@ _do_fork_gotpid:
 	LD (HL),A		; assign stack page
 	LD IX,runq_lock
 	CALL spin_unlock
+	DI				; put process image into a schedulable state before copying
+	XOR A			; ensure child returns 0 from fork()
+	PUSH AF
+	PUSH BC
+	PUSH DE
+	PUSH HL
+	PUSH IX
+	LD (MEM_SAVESP),SP
 					; copy stack page
 	LD A,(HL)
 	LD BC,0x0200|IO_MMU
@@ -147,11 +156,18 @@ _do_fork_gotpid:
 	LD DE,0x8000
 	LDIR			; do the copy
 					; mark task as runnable
+	POP IX
+	POP HL
+	POP DE
+	POP BC
+	POP AF
+	EI
 	LD IX,runq_lock
 	CALL spin_lock
 	POP AF			; A=pid, carry flag will be clear
 	PUSH AF
 	CALL find_pid_in_q
+	CALL C,panic	; should have been added by choose_pid
 	INC HL
 	LD (HL),TASK_RUNNABLE
 	CALL spin_unlock
@@ -171,6 +187,7 @@ _do_fork_gotpid:
 	POP AF
 .endif
 	LD E,0
+	EI
 	RET
 _do_fork_fail1:
 	LD (HL),0
@@ -318,6 +335,10 @@ exec_init:
 	CALL kputc_unlocked
 	CALL spin_unlock
 .endif
+	CALL do_fork
+	CALL kprint_hex	; show value of A register
+	DI
+	HALT
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
