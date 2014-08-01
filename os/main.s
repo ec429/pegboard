@@ -26,6 +26,8 @@ cpu0_setup:
 	CALL setup_mem_map
 	CALL setup_scheduler
 	CALL setup_interrupts
+	LD HL,STR_booting
+	CALL kputs
 	LD HL,can_start_other_cpus
 	LD (HL),1
 					; schedule into init
@@ -76,7 +78,8 @@ _int_timer_noproc:	; no process found, so just return
 	RETI
 
 .data
-STR_do_fork: .asciz "do_fork"
+STR_booting: .ascii "Booting PEGBOx kernel 0.0.1-pre"
+.byte 0x0a,0
 STR_finished: .ascii "main() exited!"
 .byte 0x0a,0
 start_msg_1: .asciz "CPU #"
