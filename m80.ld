@@ -1,4 +1,4 @@
-/* LD script for multi80 binaries */
+/* LD script for pegboard binaries */
 OUTPUT_FORMAT("binary")
 OUTPUT_ARCH("z80")
 MEMORY {

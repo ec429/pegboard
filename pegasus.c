@@ -1,7 +1,8 @@
 /*
-	m80em - emulator for multi80, hypothetical SMP Z80 machine
+	pegasus - emulator for pegboard, hypothetical SMP Z80 machine
+	Uses z80 core from Spiffy <https://github.com/ec429/spiffy>
 	
-	Copyright Edward Cree, 2010-13
+	Copyright Edward Cree, 2010-14
 	License: GNU GPL v3+
 */
 

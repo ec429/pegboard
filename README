@@ -1,0 +1,38 @@
+= pegboard -- pegasus -- pegbox -- peculiar =
+
+PEGBoARD (Parallel EiGht Bit ARchitecture Design) is an architecture for a
+ Symmetric Multi-Processing (SMP) machine using the Z80 CPU.
+PEGASuS (Parallel EiGht Bit Architecture System Simulator) is an emulator for
+ a PEGBoARD machine.
+PEGBOx (Parallel EiGht Bit Os) is a pre-emptive multi-tasking operating system
+ for PEGBoARD machines.
+PECULIAR (PEgbox Core Userland LIbrARy) will be the run-time library for PEGBOx
+ user processes, but its development hasn't been started yet.
+
+== pegboard ==
+The PEGBoARD architecture is (loosely) specified in 'arch-spec'.  It is expected
+ that the architecture will continue to evolve as development of the operating
+ system continues; features known to be missing from the architecture include
+ inter-processor interrupts (IPIs), and page protection bits in the MMU.
+The architecture specification is licensed under the Creative Commons
+ Attribution-ShareAlike 3.0 Unported License (see
+ <http://creativecommons.org/licenses/by-sa/3.0/>).
+
+== pegasus ==
+The PEGASuS emulator is licensed under the GNU GPL v3+.  A copy of the GPLv3
+ appears in the file 'COPYING'.  pegasus's Z80 core was derived from that of the
+ 'Spiffy' ZX Spectrum emulator <https://github.com/ec429/spiffy>.
+
+== pegbox ==
+The PEGBOx kernel can be found in the os/ subdirectory; the kernel binary will
+ be built to os/kernel.bin.  PEGBOx is licensed under the GNU GPL v3+, though
+ note that this does *not* cover user programs that use PEGBOx kernel services
+ by normal system calls - this is merely considered normal use of the kernel,
+ and does *not* fall under the heading of "derived work".
+
+== peculiar ==
+Development of the PECULIAR library hasn't been started yet, probably because
+ the PEGBOx kernel doesn't have a system call mechanism yet.  In fact, we can't
+ even run user programs because there's no defined executable format nor a
+ loader/dynamic linker for it.
+When it is developed, it will probably be licensed under the GNU LGPL.

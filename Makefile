@@ -1,14 +1,14 @@
 CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
 
-all: m80em os/main.bin
+all: pegasus os/main.bin
 
 # Rules to build the emulator
-EM_OBJS := m80em.o z80.o ops.o
+EM_OBJS := pegasus.o z80.o ops.o
 
-m80em: $(EM_OBJS)
+pegasus: $(EM_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(EM_OBJS)
 
-m80em.o: z80.h ops.h
+pegasus.o: z80.h ops.h
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
@@ -20,5 +20,5 @@ os/main.bin: FORCE
 FORCE:
 
 clean:
-	-rm -f m80em *.o
+	-rm -f pegasus *.o
 	make -C os clean
