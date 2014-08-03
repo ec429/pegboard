@@ -70,12 +70,12 @@ sched_enter:
 					; mark task as running
 	INC HL
 	LD (HL),TASK_RUNNING
+					; now it's safe to release runq_lock; no-one else will touch a RUNNING process
+	LD IX,runq_lock
+	CALL spin_unlock
 					; page in process stack
 	INC HL
 	LD D,(HL)
-					; now it's safe to release runq_lock
-	LD IX,runq_lock
-	CALL spin_unlock
 	LD BC,0x0100|IO_MMU
 	OUT (C),D
 	LD SP,(MEM_SAVESP)
