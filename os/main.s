@@ -58,6 +58,10 @@ INT_timer:			; handler for timer interrupt
 	RETI			; we will have a proper scheduler eventually, but not yet
 _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a process, so we can trash regs)
 	EX AF,AF'
+					; but first, check no-one has panicked
+	LD A,(can_start_other_cpus)
+	AND A
+	JR Z,_int_timer_panicked
 	LD IX,runq_lock
 	CALL spin_lock
 	CALL sched_choose
@@ -69,6 +73,8 @@ _int_timer_noproc:	; no process found, so just return
 	CALL spin_unlock
 	EI
 	RETI
+_int_timer_panicked:; panic on another cpu, so stop
+	HALT
 
 .section isr
 .globl unhandled_irq

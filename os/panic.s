@@ -4,6 +4,8 @@
 
 .globl panic
 panic:
+	LD HL,can_start_other_cpus
+	LD (HL),0
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,panic_msg_1
