@@ -19,11 +19,12 @@
 #define NR_CPUS		2
 #define NR_PAGES	64
 
-typedef uint8_t ram_page[16384];
+typedef uint8_t ram_page[0x1000];
 
 typedef struct
 {
-	uint8_t page[NR_CPUS][4];
+	uint8_t page[NR_CPUS][16];
+	bool iospace[NR_CPUS][16];
 	int8_t lock, using[NR_PAGES];
 	bool dd[NR_CPUS];
 }
@@ -33,8 +34,6 @@ mmu_t;
 
 #define IO_TIMER	0x02
 #define IO_MMU		0x04
-#define	 MM_SETPAGE	 0x00
-#define	 MM_GETPAGE	 0x01
 #define IO_TERMINAL	0x10
 
 #define interrupt(ci, _irq)	do { \
@@ -66,8 +65,11 @@ int main(void)//int argc, char * argv[])
 		irq[ci]=0;
 		z80_reset(&cpu[ci], &cbus[ci]);
 		bus_reset(&cbus[ci]);
-		for(uint8_t pi=0;pi<4;pi++)
+		for(uint8_t pi=0;pi<16;pi++)
+		{
 			mmu.page[ci][pi]=0;
+			mmu.iospace[ci][pi]=false;
+		}
 	}
 	z80_init(); // initialise decoding tables
 	int prog=open(PROGRAM, O_RDONLY);
@@ -133,24 +135,31 @@ int main(void)//int argc, char * argv[])
 				}
 				else if(port==IO_MMU)
 				{
-					uint8_t cmd=cbus[ci].addr>>10; // command
-					uint8_t pi=(cbus[ci].addr>>8)&3; // vpage
 					if(cbus[ci].tris==TRIS_IN)
 					{
-						if(cmd==MM_GETPAGE)
+						int pi=(cbus[ci].addr>>8)&0xf;
+						if(cbus[ci].addr&0x8000) // get prot bits and IO
+						{
+							cbus[ci].data=0xfc; // for now, all types of access are always permitted
+							if(mmu.iospace[ci][pi])
+								cbus[ci].data|=2;
+						}
+						else // get current page
 						{
 							cbus[ci].data=mmu.page[ci][pi];
-						}
-						else
-						{
-							cbus[ci].data=0xff;
 						}
 					}
 					else
 					{
-						if(cmd==MM_SETPAGE)
+						if(cbus[ci].addr&0x8000) // set prot bits
 						{
+							// is a nop for now
+						}
+						else
+						{
+							int pi=(cbus[ci].addr>>8)&0xf;
 							mmu.page[ci][pi]=cbus[ci].data;
+							mmu.iospace[ci][pi]=cbus[ci].addr&0x4000;
 						}
 					}
 				}
@@ -172,8 +181,10 @@ int main(void)//int argc, char * argv[])
 				}
 			}
 			/* MMU */
-			for(uint8_t pi=0;pi<4;pi++)
+			for(uint8_t pi=0;pi<16;pi++)
 			{
+				if(mmu.iospace[ci][pi])
+					continue;
 				uint8_t page=mmu.page[ci][pi];
 				if(page<NR_PAGES&&mmu.using[page]==ci)
 					mmu.using[page]=-1;
@@ -186,9 +197,14 @@ int main(void)//int argc, char * argv[])
 				}
 				else
 				{
-					uint8_t pi=cbus[ci].addr>>14;
+					uint8_t pi=cbus[ci].addr>>12;
 					uint8_t page=mmu.page[ci][pi];
-					if(page<NR_PAGES)
+					if(mmu.iospace[ci][pi])
+					{
+						// No MMIO devices implemented yet
+						cbus[ci].data=0xff;
+					}
+					else if(page<NR_PAGES)
 					{
 						if(mmu.using[page]<0)
 						{
@@ -207,7 +223,7 @@ int main(void)//int argc, char * argv[])
 							{
 								ram[page][rbus[page].addr]=rbus[page].data;
 #ifdef DEBUG_WRITES
-								if(cbus[ci].addr<0x1000)
+								if(!ci)
 									fprintf(stderr, "%02x: %s %04x [%02x:%04x] %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, page, rbus[page].addr, rbus[page].data);
 #endif
 							}
@@ -265,12 +281,19 @@ int main(void)//int argc, char * argv[])
 			for(uint8_t ci=0;ci<NR_CPUS;ci++)
 				if(cbus[ci].mreq&&cbus[ci].tris)
 				{
-					uint8_t pi=cbus[ci].addr>>14;
+					uint8_t pi=cbus[ci].addr>>12;
 					uint8_t page=mmu.page[ci][pi];
-					if(page<NR_PAGES&&mmu.using[page]<0)
-						fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, cbus[ci].data);
+					if(mmu.iospace[page]) // should be impossible as MMIO is not locked or serialised
+					{
+						fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"IN":"OUT", cbus[ci].addr, cbus[ci].data);
+					}
 					else
-						fprintf(stderr, "%02x: WAIT %02x (%04x)\n", ci, page, cbus[ci].addr);
+					{
+						if(page<NR_PAGES&&mmu.using[page]<0)
+							fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, cbus[ci].data);
+						else
+							fprintf(stderr, "%02x: WAIT %02x (%04x)\n", ci, page, cbus[ci].addr);
+					}
 				}
 			break;
 		}

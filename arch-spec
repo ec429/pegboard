@@ -29,18 +29,18 @@ The special case is when A is trying to do its MW to the spinlock.  But at this 
 
 MEMORY MANAGEMENT UNIT
 
-A15/A14 are page selectors (so each CPU has four virtual pages, and each page is 16kB).  The paging is set up with OUTs (details TBD).  Multiple CPUs may map the same page simultaneously.  If a CPU pulls down /MREQ and either /RD or /WR, it now owns that page, and any other CPU trying to /MREQ the same page will get /WAITed.  As mentioned above, the lock prefix will /WAIT all other CPUs with the page mapped, whether they are trying to R/W that page or not.  (I think it'd still work if it only /WAITed CPUs trying to R/W the same page as the locked instruction; the trouble is you have to track which pages the locked op has touched - when the lock enters it's only seeing the address of the second DD.)
+A15-A12 are page selectors (so each CPU has 16 virtual pages, and each page is 4kB).  The paging is set up with OUTs (detailed below).  Multiple CPUs may map the same page simultaneously.  If a CPU pulls down /MREQ and either /RD or /WR, it now owns that page, and any other CPU trying to /MREQ the same page will get /WAITed.  As mentioned above, the lock prefix will /WAIT all other CPUs with the page mapped, whether they are trying to R/W that page or not.  (I think it'd still work if it only /WAITed CPUs trying to R/W the same page as the locked instruction; the trouble is you have to track which pages the locked op has touched - when the lock enters it's only seeing the address of the second DD.)
+However, this serialisation and locking is NOT applied to peripheral device memory (MMIO); if two CPUs try to access the same MMIO page, the behaviour is undefined.
 
 Reading from a nonexistent page produces 0xff (and writing of course has no effect).
-This scheme allows for a maximum of 256 × 16kB pages, that is a total of 4MB.  (Phrased another way, full physical addresses are 24 bits.)
+This scheme allows for a maximum of 256 × 4kB pages, that is a total of 1MB.  (Phrased another way, full physical addresses are 20 bits.)
 
-The paging is controlled through I/O port 0x04.  The command is given in A15-A10, the virtual page in A9-A8, and the physical page in the data byte.
-MSB<15|14|13|12|11|10|09|08|07|06|05|04|03|02|01|00>LSB
-   <     command     |vpage| 0| 0| 0| 0| 0| 1| 0| 0>
-Commands:
-	Mnemonic	Command	Dir	Description
-	MM_SETPAGE	0x00	W	Map in ppage at the given vpage.
-	MM_GETPAGE	0x01	R	Return the ppage mapped at the given vpage.
+The paging is controlled through I/O port 0x04, as follows:
+AMSB<15|14|13|12|11|10|09|08|07|06|05|04|03|02|01|00>ALSB  DMSB<7|6|5|4|3|2|1|0>DLSB
+WR  < 0|IO| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Maps memory page ppage into vpage.  If IO bit set, maps in peripheral device memory for MMIO instead.  (Two unused bits, A13 and A12)
+WR  < 1|IO|    prot_bits    | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Sets protection bits on memory page ppage.  If IO bit set, applies to peripheral device memory instead.  (prot_bits interpretation TBD)  (All bits used).
+RD  < 0| 0| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Returns the ppage mapped in at vpage.  (Three unused request bits, A14-A12)
+RD  < 1| 0| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          < prot_bits |I|0>        Returns the protection bits of page mapped at vpage; D1 is set if it is peripheral device memory.  (Three unused request bits A14-12 and one unused response bit D0)
 
 TERMINAL I/O
 

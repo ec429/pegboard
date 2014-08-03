@@ -1,3 +1,5 @@
+.include "mem.inc"
+
 .text
 
 .globl panic
@@ -26,7 +28,7 @@ panic:
 	CALL kputs_unlocked
 	LD B,0x10		; max. number of stack entries to print
 	XOR A			; make sure carry is clear
-	LD HL,0x8000
+	LD HL,MEM_STKTOP
 	SBC HL,SP
 	CP H
 	JR NZ,_panic_stack_loop; we've got at least 128 items, so we're fine

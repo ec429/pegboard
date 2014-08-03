@@ -17,7 +17,7 @@ setup_mem_map:
 	LD C,IO_MMU
 	LD B,1
 	LD D,B
-	LD HL,0x4000
+	LD HL,0x1000
 smm_next_page:
 	OUT (C),D		; set pi 1 to page D
 	XOR A

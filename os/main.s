@@ -43,15 +43,8 @@ _main_never:
 	RET
 
 setup_interrupts:
-	LD HL,0x1f00	; fill interrupt table with 0x1c1c (unhandled IRQ)
-	LD (HL),0x1c
-	LD BC,0xff
-	PUSH HL
-	POP DE
-	INC DE
-	LDIR
 	LD HL,INT_timer	; plumb timer interrupt
-	LD (0x1f02),HL
+	LD (0x0f02),HL
 	RET
 
 INT_timer:			; handler for timer interrupt
@@ -76,6 +69,15 @@ _int_timer_noproc:	; no process found, so just return
 	CALL spin_unlock
 	EI
 	RETI
+
+.section isr
+.globl unhandled_irq
+unhandled_irq:
+EI
+RETI
+
+.section ivt
+.skip 0x100,0x0e	; fill interrupt table with 0x0e0e (unhandled IRQ)
 
 .data
 STR_booting: .ascii "Booting PEGBOx kernel 0.0.1-pre"

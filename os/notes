@@ -18,8 +18,8 @@ pid 0 represents "no process".
 
 Process stack page layout:
 	0000: Saved SP (word).  While process is running, instead contains saved IY, the &percpu_struct for the CPU it's running on
-	0002: VM maps (byte[4])
-	0006:
+	0002: VM maps (byte[16])
+	0012:
 	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX and save SP (we do not save shadow registers, nor IY which should always point to the percpu_struct).
 
 Next steps:

@@ -1,13 +1,11 @@
-/* LD script for pegboard binaries */
+/* LD script for pegboard kernel */
 OUTPUT_FORMAT("binary")
 OUTPUT_ARCH("z80")
 MEMORY {
-   initprog : ORIGIN = 0x0, LENGTH = 0x40
-   program : ORIGIN = 0x40, LENGTH = 0x1bc0
-   isr : ORIGIN = 0x1c00, LENGTH = 0x400 /* stores interrupt table and optionally other interrupt handling code */
-   page1 : ORIGIN = 0x4000 LENGTH = 0x4000
-   page2 : ORIGIN = 0x8000 LENGTH = 0x4000
-   page3 : ORIGIN = 0xC000 LENGTH = 0x4000
+   initprog : ORIGIN = 0x0, LENGTH = 0x42
+   program : ORIGIN = 0x42, LENGTH = 0xdcc
+   isr : ORIGIN = 0xe0e, LENGTH = 0xf2 /* interrupt service routine */
+   ivt : ORIGIN = 0xf00, LENGTH = 0x100 /* interrupt vector table */
 }
 SECTIONS
 {
@@ -23,6 +21,10 @@ SECTIONS
 		*(.isr)
 		*(isr)
 		} > isr
+.ivt : {
+		*(.ivt)
+		*(ivt)
+		} > ivt
 .bss : {
 		*(.bss)
 		*(bss)
@@ -31,16 +33,4 @@ SECTIONS
 		*(.data)
 		*(data)
 		} > program
-.page1 : {
-		*(.page1)
-		*(page1)
-		} > page1
-.page2 : {
-		*(.page2)
-		*(page2)
-		} > page2
-.page3 : {
-		*(.page3)
-		*(page3)
-		} > page3
 }

@@ -152,10 +152,10 @@ _do_fork_gotpid:
 	LD A,(HL)
 	LD BC,0x0200|IO_MMU
 	OUT (C),A		; page in stack at pi 2
-	LD HL,0x4000
+	LD HL,0x1000
 	PUSH HL
 	POP BC
-	LD DE,0x8000
+	LD DE,MEM_STKTOP
 	LDIR			; do the copy
 					; mark task as runnable
 	POP IX
@@ -300,7 +300,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LD (IX+2),A
 	LD BC,0x0100|IO_MMU
 	OUT (C),A		; page in init's stack page at pi=1
-	LD HL,0x8000	; set the stack pointer to 0x8000 (top of page 1)
+	LD HL,MEM_STKTOP
 	LD (MEM_SAVESP),HL
 	SPSWAP
 	LD HL,exec_init	; Stack slot for PC
@@ -317,7 +317,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	PUSH HL
 	POP DE
 	INC DE
-	LD BC,3
+	LD BC,0xf
 	LDIR
 	RET
 

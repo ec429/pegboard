@@ -7,11 +7,17 @@
 	CALL spin_lock
 	LD E,(HL)
 	INC (HL)
-					; set up individual stack at 0x3ffe - cpuindex*0x100
-	LD A,0x3f
+					; set up individual stack at 0x0ffe - cpuindex*0x20 = (0x7ff0 - cpuindex*0x100)/8
+	LD A,0x7f
 	SUB E
 	LD H,A
-	LD L,0xfe
+	LD L,0xf0
+	SRL H
+	RR L
+	SRL H
+	RR L
+	SRL H
+	RR L
 	LD SP,HL
 	CALL spin_unlock
 	LD IY,0xfffe
