@@ -13,6 +13,7 @@ kernel.bin: $(TARGET_OBJS) ../m80.ld
 
 sched.zo: sched.inc mem.inc flags.inc
 mem.zo: mem.inc flags.inc
+panic.zo: mem.inc
 
 %.zo: %.s errno.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
