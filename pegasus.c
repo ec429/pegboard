@@ -211,7 +211,7 @@ int main(void)//int argc, char * argv[])
 							mmu.using[page]=ci;
 							/* MMU */
 							rbus[page].tris=cbus[ci].tris;
-							rbus[page].addr=cbus[ci].addr&0x3fff;
+							rbus[page].addr=cbus[ci].addr&0xfff;
 							if(rbus[page].tris==TRIS_OUT)
 								rbus[page].data=cbus[ci].data;
 							/* RAM */
