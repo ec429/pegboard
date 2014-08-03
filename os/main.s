@@ -2,7 +2,7 @@
 
 .globl main			; per-CPU OS entry point.  Does not return
 main:
-	LD A,0x1f		; set intvec = 0x1f
+	LD A,0x0f		; set intvec = 0x0f
 	LD I,A
 ; we are now online
 	LD IX,kprint_lock
