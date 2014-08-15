@@ -1,3 +1,4 @@
+.include "sched.inc"
 .text
 
 .globl main			; per-CPU OS entry point.  Does not return
@@ -48,15 +49,21 @@ setup_interrupts:
 	RET
 
 INT_timer:			; handler for timer interrupt
-	; currently have to trust IY is still pointing right!  XXX this is a problem
 	EX AF,AF'
+	EXX
+	PERCPU
+	LD IY,0xfffe
+	EX DE,HL
+	ADD IY,DE		; IY points to the percpu_struct
 	LD A,(IY+1)		; current PID
 	AND A
 	JR Z,_int_timer_schedule
+	EXX
 	EX AF,AF'		; a process is already running, let it continue
 	EI
 	RETI			; we will have a proper scheduler eventually, but not yet
 _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a process, so we can trash regs)
+	EXX
 	EX AF,AF'
 					; but first, check no-one has panicked
 	LD A,(can_start_other_cpus)
