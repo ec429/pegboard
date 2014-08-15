@@ -30,7 +30,7 @@ typedef struct
 }
 mmu_t;
 
-#define PROGRAM	"os/kernel.bin"
+#define PROGRAM	"pegbox/kernel.bin"
 
 #define IO_TIMER	0x02
 #define IO_MMU		0x04
@@ -76,6 +76,11 @@ int main(void)//int argc, char * argv[])
 	}
 	z80_init(); // initialise decoding tables
 	int prog=open(PROGRAM, O_RDONLY);
+	if(prog<0)
+	{
+		perror("Failed to load kernel: open");
+		return(1);
+	}
 	for(uint8_t page=0;page<NR_PAGES;page++)
 	{
 		ssize_t bytes=read(prog, ram[page], sizeof(ram[page]));
