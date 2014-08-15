@@ -34,6 +34,9 @@ mmu_t;
 
 #define IO_TIMER	0x02
 #define IO_MMU		0x04
+# define IO_MMU_GETPAGE	0
+# define IO_MMU_GETPROT	1
+# define IO_MMU_GETCPUID	2
 #define IO_TERMINAL	0x10
 
 #define interrupt(ci, _irq)	do { \
@@ -138,16 +141,26 @@ int main(void)//int argc, char * argv[])
 					if(cbus[ci].tris==TRIS_IN)
 					{
 						int pi=(cbus[ci].addr>>8)&0xf;
-						if(cbus[ci].addr&0x8000) // get prot bits and IO
+						int cmd=cbus[ci].addr>>12;
+						uint8_t rv;
+						switch(cmd)
 						{
-							cbus[ci].data=0xfc; // for now, all types of access are always permitted
-							if(mmu.iospace[ci][pi])
-								cbus[ci].data|=2;
+							case IO_MMU_GETPAGE: // get current page
+								rv=mmu.page[ci][pi];
+							break;
+							case IO_MMU_GETPROT: // get prot bits and IO
+								rv=0xfc; // for now, all types of access are always permitted
+								if(mmu.iospace[ci][pi])
+									rv|=2;
+								break;
+							case IO_MMU_GETCPUID: // get cpu socket ID
+								rv=ci;
+							break;
+							default:
+								rv=0xff;
+							break;
 						}
-						else // get current page
-						{
-							cbus[ci].data=mmu.page[ci][pi];
-						}
+						cbus[ci].data=rv;
 					}
 					else
 					{
