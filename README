@@ -24,11 +24,11 @@ The PEGASuS emulator is licensed under the GNU GPL v3+.  A copy of the GPLv3
  'Spiffy' ZX Spectrum emulator <https://github.com/ec429/spiffy>.
 
 == pegbox ==
-The PEGBOx kernel can be found in the os/ subdirectory; the kernel binary will
- be built to os/kernel.bin.  PEGBOx is licensed under the GNU GPL v3+, though
- note that this does *not* cover user programs that use PEGBOx kernel services
- by normal system calls - this is merely considered normal use of the kernel,
- and does *not* fall under the heading of "derived work".
+The PEGBOx kernel can be found in the pegbox/ subdirectory; the kernel binary
+ will be built to pegbox/kernel.bin.  PEGBOx is licensed under the GNU GPL v2
+ (see pegbox/COPYING), though note that this does *not* cover user programs that
+ use PEGBOx kernel services by normal system calls - this is merely considered
+ normal use of the kernel, and does NOT fall under the heading of derived work.
 
 == peculiar ==
 Development of the PECULIAR library hasn't been started yet, probably because
