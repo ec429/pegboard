@@ -18,7 +18,7 @@ main:
 	CALL spin_unlock
 	LD A,(IY+0)
 	AND A
-	JR Z,cpu0_setup
+	CALL Z,cpu0_setup
 	EI
 _main_idle:
 	HALT
@@ -31,17 +31,7 @@ cpu0_setup:
 	CALL kputs
 	LD HL,can_start_other_cpus
 	LD (HL),1
-					; schedule into init
-	LD IX,runq_lock
-	CALL spin_lock
-	LD A,1
-	CALL sched_enter
-_main_never:
-					; Shouldn't get here
-	LD HL,STR_finished
-	CALL kputs
-	CALL panic
-	RET
+	RET				; init is now ready to be entered by whichever CPU schedules first
 
 setup_interrupts:
 	LD HL,INT_timer	; plumb timer interrupt
@@ -69,15 +59,13 @@ _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a 
 	LD A,(can_start_other_cpus)
 	AND A
 	JR Z,_int_timer_panicked
-	LD IX,runq_lock
-	CALL spin_lock
 	CALL sched_choose
 	JR C,_int_timer_noproc
 	CALL sched_enter
-	JR _main_never
+	LD HL,STR_finished
+	CALL kputs
+	CALL panic
 _int_timer_noproc:	; no process found, so just return
-	LD IX,runq_lock
-	CALL spin_unlock
 	EI
 	RETI
 _int_timer_panicked:; panic on another cpu, so stop
@@ -95,7 +83,7 @@ RETI
 .data
 STR_booting: .ascii "Booting PEGBOx kernel 0.0.1-pre"
 .byte 0x0a,0
-STR_finished: .ascii "main() exited!"
+STR_finished: .ascii "Failed to sched_enter!"
 .byte 0x0a,0
 start_msg_1: .asciz "CPU #"
 start_msg_2: .ascii " online"

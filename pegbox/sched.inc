@@ -1,3 +1,9 @@
+.include "list.inc"
+
+; struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; };
+PROCESS_SIZE equ	LIST_HEAD_SIZE+3
+
+; enum status_t
 TASK_RUNNING equ 0
 TASK_RUNNABLE equ 1
 TASK_INTERRUPTIBLE equ 2

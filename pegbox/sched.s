@@ -3,6 +3,8 @@
 .include "errno.inc"
 .include "flags.inc"
 
+PROC_SLOTS equ	8
+
 .text
 
 .macro spswap		; swaps SP with [MEM_SAVESP]
@@ -12,18 +14,16 @@
 	LD (MEM_SAVESP),HL
 .endm
 
-.globl sched_choose	; returns (in HL) a runnable process from the runq, if there is one, else carry flag.  Caller must hold runq_lock
+.globl sched_choose	; returns (in IX) a runnable process from the runq, if there is one, else carry flag
 sched_choose:
-	LD HL,runq+1
-	LD B,8
-	LD A,TASK_RUNNABLE
-_sched_choose_nextslot:
-	CP (HL)
-	JR Z,_sched_choose_found
-	INC HL
-	INC HL
-	INC HL
-	DJNZ _sched_choose_nextslot
+	LD IX,runq_lock
+	CALL spin_lock
+	LD HL,runq
+	CALL list_empty
+	JR NZ,_sched_choose_pop
+					; no process runnable
+	LD IX,runq_lock
+	CALL spin_unlock
 .ifdef DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -37,17 +37,25 @@ _sched_choose_nextslot:
 .endif
 	SCF
 	RET
-_sched_choose_found:
-	DEC HL
-.ifdef DEBUG
+_sched_choose_pop:
 	PUSH HL
+	POP IX
+	LD L,(IX+0)		; head->next
+	LD H,(IX+1)
+	PUSH HL
+	CALL list_del	; remove from runq
+	LD IX,runq_lock	; now we're unreachable from the runq, so we can release the runq_lock
+	CALL spin_unlock
+	POP IX
+.ifdef DEBUG
+	PUSH IX
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,sched_chose_1
 	CALL kputs_unlocked
-	POP HL
-	PUSH HL
-	LD A,(HL)		; pid
+	POP IX
+	PUSH IX
+	LD A,(IX+4)		; pid
 	CALL kprint_hex_unlocked
 	LD HL,sched_chose_2
 	CALL kputs_unlocked
@@ -55,27 +63,20 @@ _sched_choose_found:
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
+	LD IX,kprint_lock
 	CALL spin_unlock
-	POP HL
+	POP IX
 .endif
-	LD A,(HL)		; pid
-	AND A			; clear carry flag
+	AND A			; clear carry
 	RET
 
-.globl sched_enter	; starts running pid A (doesn't save current state).  Releases: runq_lock
+.globl sched_enter	; starts running (struct process *)IX (doesn't save current state)
 sched_enter:
+	LD A,(IX+4)		; pid
 	LD (IY+1),A		; store percpu_struct.current_pid
-	CALL find_pid_in_q; find the runq entry
-	CALL C,panic
-					; mark task as running
-	INC HL
-	LD (HL),TASK_RUNNING
-					; now it's safe to release runq_lock; no-one else will touch a RUNNING process
-	LD IX,runq_lock
-	CALL spin_unlock
+	LD (IX+5),TASK_RUNNING
 					; page in process stack
-	INC HL
-	LD D,(HL)
+	LD D,(IX+6)
 	LD BC,0x0100|IO_MMU
 	OUT (C),D
 	LD SP,(MEM_SAVESP)
@@ -88,26 +89,12 @@ sched_enter:
 	EI				; process must have had interrupts enabled before, because it got pre-empted (or it'd still be running)
 	RET
 
-find_q_slot:		; finds an empty slot on the runq.  Caller must hold runq_lock
-	LD A,0
-	JR find_pid_in_q
-
-find_pid_in_q:		; finds pid A in the runq.  Caller must hold runq_lock
-	LD HL,runq
-	LD B,8
-_find_pid_in_q_nextslot:
-	CP (HL)
-	RET Z			; if Z, then carry is clear also.  Returns address of struct process in HL
-	INC HL
-	INC HL
-	INC HL
-	DJNZ _find_pid_in_q_nextslot
-	LD E,EAGAIN
-	SCF
-	RET
-
 .globl do_fork		; adds new process to tail of runqueue, returns new pid in A.  errno in E
 do_fork:
+	CALL choose_pid
+	CP 1
+	RET C
+.if 0				; XXX do_fork still needs to be rewritten
 	LD IX,runq_lock
 	CALL spin_lock
 	LD HL,runq
@@ -198,6 +185,7 @@ _do_fork_fail1:
 	CALL spin_unlock
 	POP AF			; A=pid
 	CALL free_pid
+.endif
 	SCF
 	RET
 
@@ -213,8 +201,12 @@ _choose_pid_loop:
 	LD A,B
 	JR Z,_choose_pid_chosen
 	INC A
-	CP C
-	JR NZ,_choose_pid_loop
+	CP PROC_SLOTS
+	JR C,_choose_pid_cont
+	XOR A			; wrap around to pid 0
+_choose_pid_cont:
+	CP C			; are we back to the nextpid we started with?
+	JR NZ,_choose_pid_loop; then there must be no free slots
 	CALL spin_unlock
 	LD A,0
 	LD E,EAGAIN
@@ -288,16 +280,23 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LD HL,pid_map
 	LD (HL),0x3		; pid 0 is unusable, pid 1 is init
 					; create init process
-	LD (IY+1),1		; mark our running process as init, so we can get_page
 	LD IX,runq
-	LD (IX+0),1
-	LD (IX+1),TASK_RUNNABLE
+	CALL init_list_head
+	LD BC,runq		; add init to runq
+	LD HL,procs+PROCESS_SIZE; procs[1] is pid 1, init
+	PUSH HL
+	CALL list_add
+	POP IX
+	LD (IX+4),1
+	LD (IX+5),TASK_RUNNABLE
 	PUSH IX
+	LD (IY+1),1		; mark our running process as init, so we can get_page
 	CALL get_page	; If this fails, the system only has one working page...
 	POP IX
 	AND A
 	CALL Z,panic	; ... so let's give up now
-	LD (IX+2),A
+	LD (IY+1),0		; clear our running process (as we're not actually running init)
+	LD (IX+6),A
 	LD BC,0x0100|IO_MMU
 	OUT (C),A		; page in init's stack page at pi=1
 	LD HL,MEM_STKTOP
@@ -345,7 +344,7 @@ exec_init:
 .data
 .globl runq_lock, nextpid_lock
 runq_lock: .byte 0xfe
-nextpid_lock: .byte 0xfe ; also guards pid_map
+nextpid_lock: .byte 0xfe ; also guards pid_map and (currently) procs
 nextpid: .byte 2
 .ifdef DEBUG
 got_proc_1: .asciz "Created process "
@@ -357,5 +356,6 @@ sched_waiting: .asciz "No process runnable on CPU "
 .endif
 
 .bss
-runq: .skip 24
-pid_map: .skip 32
+runq: .skip 4
+procs: .skip PROCESS_SIZE * PROC_SLOTS; we're actually being inefficient and reserving a slot for the non-existent pid 0
+pid_map: .skip (PROC_SLOTS+7)/8

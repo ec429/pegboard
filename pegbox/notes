@@ -5,7 +5,7 @@ spinlock.s provides a simple spinlock based around the instruction 'lock sra (IX
 Allocations are stored in a bitmap char mem_map[255], where mem_map[i] contains the PID of the owner of page (i+1) (or 0 for free pages).  Page 0 is always owned by the kernel (and incidentally, contains the mem_map bitmap).  We also have the lock (spinlock_t mem_lock), and the number of free pages (char mem_free).  If there are less than 256 pages of memory attached, let's say there are 64, then only the first 63 bytes of mem_map are meaningful, and mem_free only counts 0s in those 63 bytes.  This means that, by (a) only allocating a page if mem_free > 0 and (b) always allocating the lowest-numbered available page, only pages that are attached will ever be allocated.
 Note that NULL points to the start of init, and reads/writes through it will not fault or trap.  (This may change in the future if page 0 contains only .text and is thus set up to be read-only.)
 
-For now, scheduling is based on a simple run-queue; any process which expires its time-slice gets added to the tail; and the next process to run is popped from the head.  Until we have kmalloc (and can use a linked-list), the queue will be a fixed 8-slot allocation (so this will be our max. number of processes).
+For now, scheduling is based on a simple run-queue; any process which expires its time-slice gets added to the tail; and the next process to run is popped from the head.  Until we have kmalloc, the queue will be a fixed 8-slot allocation (so this will be our max. number of processes).
 enum status_t {
 	TASK_RUNNING=0, /* currently running on a CPU */
 	TASK_RUNNABLE=1, /* waiting for a timeslot */
@@ -13,9 +13,11 @@ enum status_t {
 	TASK_UNINTERRUPTIBLE=3, /* sleeping, cannot be killed */
 };
 Note a special case: when a process fork()s, the child may be TASK_UNINTERRUPTIBLE while its state is copied from the parent.  If the parent happens to expire its time-slice while doing this, the child will remain in TASK_UNINTERRUPTIBLE until the parent can finish.  What's really happening here is that the child doesn't yet have an execution context, so its status is tied to that of the parent.
-struct process { byte pid; enum status_t status; byte basepage; } runq[8];
+struct list_head runq; /* processes in TASK_RUNNABLE */
+struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; } procs[8];
 I did wonder if we needed to save the registers in struct process as well, but in fact we can save them on the kernel stack, which will be on the basepage, along with other per-process data such as page allocations.
 pid 0 represents "no process".
+Any process in TASK_[UN]INTERRUPTIBLE should be tied to some event that it's waiting for.  In some cases this will be a struct list_head waitq associated with whatever can trigger that event.  (However, we don't yet have anything sleepable-on except for the fork() case above, which only one process - the new child - can be waiting for.)
 
 ***PROBLEM: IM 2 is nonviable because user code could change the I register and redirect interrupts.  POSSIBLE SOLUTION: the MMU could recognise the LD I,A opcode (I believe it's the only way to set I) and block it (turn it into a NOP or TRAP) if the PC isn't in a ppage with PROT_KERNEL***
 
