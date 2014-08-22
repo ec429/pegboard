@@ -94,38 +94,30 @@ do_fork:
 	CALL choose_pid
 	CP 1
 	RET C
-.if 0				; XXX do_fork still needs to be rewritten
-	LD IX,runq_lock
-	CALL spin_lock
-	LD HL,runq
-	CALL find_q_slot
-	JR C,_do_fork_unlock_out
+.if PROCESS_SIZE != 8
+.error "assert PROCESS_SIZE == 8"
+.endif
+	LD HL,procs		; slot = procs + (pid*PROCESS_SIZE)
+	PUSH AF			; stash child pid, carry flag is clear
+	LD C,A
+	LD B,0
+	SLA C
+	RL B
+	SLA C
+	RL B
+	SLA C
+	RL B
+	ADD HL,BC
 	PUSH HL
-	CALL choose_pid
-	AND A
-	JR NZ,_do_fork_gotpid
-	POP HL
-_do_fork_unlock_out:
-	LD IX,runq_lock
-	CALL spin_unlock
-	XOR A
-	SCF
-	RET
-_do_fork_gotpid:
-	POP HL
-	PUSH AF			; stash child pid
-	LD (HL),A
-	INC HL
-	LD (HL),TASK_UNINTERRUPTIBLE
-	PUSH HL
+	POP IX
+	LD (IX+4),A
+	LD (IX+5),TASK_UNINTERRUPTIBLE
+	PUSH IX
 	CALL get_page	; obtain stack page
-	POP HL
+	POP IX
 	AND A
 	JR Z,_do_fork_fail1
-	INC HL
-	LD (HL),A		; assign stack page
-	LD IX,runq_lock
-	CALL spin_unlock
+	LD (IX+6),A		; assign stack page
 	POP BC			; retrieve child pid
 	DI				; put process image into a schedulable state before copying
 	XOR A			; ensure child returns 0 from fork()
@@ -136,7 +128,7 @@ _do_fork_gotpid:
 	PUSH IX
 	LD (MEM_SAVESP),SP
 					; copy stack page
-	LD A,(HL)
+	LD A,(IX+6)
 	LD BC,0x0200|IO_MMU
 	OUT (C),A		; page in stack at pi 2
 	LD HL,0x1000
@@ -150,17 +142,19 @@ _do_fork_gotpid:
 	POP DE
 	POP BC
 	POP AF
-	EI
-	PUSH BC			; stash child pid again
+	PUSH BC
+	PUSH IX
 	LD IX,runq_lock
 	CALL spin_lock
-	POP AF			; A=pid, carry flag will be clear
-	PUSH AF
-	CALL find_pid_in_q
-	CALL C,panic	; should have been added by choose_pid
-	INC HL
-	LD (HL),TASK_RUNNABLE
+	POP IX
+	LD (IX+5),TASK_RUNNABLE
+	PUSH IX
+	POP HL
+	LD DE,runq
+	CALL list_add_tail
+	LD IX,runq_lock
 	CALL spin_unlock
+	EI
 	POP AF
 .ifdef DEBUG
 	PUSH AF
@@ -180,15 +174,14 @@ _do_fork_gotpid:
 	EI
 	RET
 _do_fork_fail1:
-	LD (HL),0
-	LD IX,runq_lock
-	CALL spin_unlock
+	POP IX
+	LD (IX+4),0
 	POP AF			; A=pid
 	CALL free_pid
-.endif
 	SCF
 	RET
 
+.globl choose_pid
 choose_pid:			; returns chosen pid in A, or 0 with errno in E
 	LD IX,nextpid_lock
 	CALL spin_lock
@@ -302,6 +295,8 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LD HL,MEM_STKTOP
 	LD (MEM_SAVESP),HL
 	SPSWAP
+	LD HL,exit_proc	; Process return address
+	PUSH HL
 	LD HL,exec_init	; Stack slot for PC
 	PUSH HL
 	LD HL,0			; Stack slots for AF BC DE HL IX.  Fill all with 0
@@ -319,6 +314,10 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LD BC,0xf
 	LDIR
 	RET
+
+.globl exit_proc
+exit_proc:			; Return address for a process
+	CALL panic		; Should really mark process as TASK_EXITED or something, so parent can wait()
 
 .globl exec_init
 exec_init:
@@ -338,13 +337,18 @@ exec_init:
 	CALL spin_unlock
 .endif
 	CALL do_fork
+	JR NC,_exec_forked
+	LD HL,fork
+	CALL perror
+	RET
+_exec_forked:
 	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
 .globl runq_lock, nextpid_lock
 runq_lock: .byte 0xfe
-nextpid_lock: .byte 0xfe ; also guards pid_map and (currently) procs
+nextpid_lock: .byte 0xfe ; also guards pid_map
 nextpid: .byte 2
 .ifdef DEBUG
 got_proc_1: .asciz "Created process "
@@ -353,6 +357,7 @@ exec_init_2: .asciz " started init, pid="
 sched_chose_1: .asciz "pid "
 sched_chose_2: .asciz " scheduled on CPU "
 sched_waiting: .asciz "No process runnable on CPU "
+fork: .asciz "fork"
 .endif
 
 .bss
