@@ -112,6 +112,8 @@ do_fork:
 	POP IX
 	LD (IX+4),A
 	LD (IX+5),TASK_UNINTERRUPTIBLE
+	LD A,(IY+1)		; get our own pid
+	LD (IX+7),A		; and save it in child's ppid
 	PUSH IX
 	CALL get_page	; obtain stack page
 	POP IX
@@ -181,7 +183,6 @@ _do_fork_fail1:
 	SCF
 	RET
 
-.globl choose_pid
 choose_pid:			; returns chosen pid in A, or 0 with errno in E
 	LD IX,nextpid_lock
 	CALL spin_lock
@@ -290,6 +291,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	CALL Z,panic	; ... so let's give up now
 	LD (IY+1),0		; clear our running process (as we're not actually running init)
 	LD (IX+6),A
+	LD (IX+7),0		; ppid: init has no parent
 	LD BC,0x0100|IO_MMU
 	OUT (C),A		; page in init's stack page at pi=1
 	LD HL,MEM_STKTOP
@@ -315,8 +317,24 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LDIR
 	RET
 
+.globl getppid		; returns the ppid in A
+getppid:
+	LD A,(IY+1)		; our own pid
+	LD IX,procs		; slot = procs + (pid*PROCESS_SIZE)
+	LD C,A
+	LD B,0
+	SLA C
+	RL B
+	SLA C
+	RL B
+	SLA C
+	RL B
+	ADD IX,BC
+	LD A,(IX+7)
+	RET
+
 .globl exit_proc
-exit_proc:			; Return address for a process
+exit_proc:			; A process which RETs its entry point ends up here
 	CALL panic		; Should really mark process as TASK_EXITED or something, so parent can wait()
 
 .globl exec_init
@@ -343,6 +361,8 @@ exec_init:
 	RET
 _exec_forked:
 	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
+	CALL getppid
+	CALL kprint_hex	; show ppid
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data

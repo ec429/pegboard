@@ -14,7 +14,7 @@ enum status_t {
 };
 Note a special case: when a process fork()s, the child may be TASK_UNINTERRUPTIBLE while its state is copied from the parent.  If the parent happens to expire its time-slice while doing this, the child will remain in TASK_UNINTERRUPTIBLE until the parent can finish.  What's really happening here is that the child doesn't yet have an execution context, so its status is tied to that of the parent.
 struct list_head runq; /* processes in TASK_RUNNABLE */
-struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; } procs[8];
+struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; byte ppid; } procs[8];
 I did wonder if we needed to save the registers in struct process as well, but in fact we can save them on the kernel stack, which will be on the basepage, along with other per-process data such as page allocations.
 pid 0 represents "no process".
 Any process in TASK_[UN]INTERRUPTIBLE should be tied to some event that it's waiting for.  In some cases this will be a struct list_head waitq associated with whatever can trigger that event.  (However, we don't yet have anything sleepable-on except for the fork() case above, which only one process - the new child - can be waiting for.)

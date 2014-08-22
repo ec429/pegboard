@@ -1,6 +1,6 @@
 .include "list.inc"
 
-; struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; byte pad;};
+; struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; byte ppid;};
 PROCESS_SIZE equ	8
 
 ; enum status_t
