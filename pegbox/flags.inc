@@ -1,1 +1,1 @@
-DEBUG equ 0			; enable debug messages
+DEBUG equ 1			; enable debug messages

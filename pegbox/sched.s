@@ -24,7 +24,7 @@ sched_choose:
 					; no process runnable
 	LD IX,runq_lock
 	CALL spin_unlock
-.ifdef DEBUG
+.if DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,sched_waiting
@@ -47,7 +47,7 @@ _sched_choose_pop:
 	LD IX,runq_lock	; now we're unreachable from the runq, so we can release the runq_lock
 	CALL spin_unlock
 	POP IX
-.ifdef DEBUG
+.if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -158,7 +158,7 @@ do_fork:
 	CALL spin_unlock
 	EI
 	POP AF
-.ifdef DEBUG
+.if DEBUG
 	PUSH AF
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -339,7 +339,7 @@ exit_proc:			; A process which RETs its entry point ends up here
 
 .globl exec_init
 exec_init:
-.ifdef DEBUG
+.if DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,exec_init_1
@@ -370,15 +370,15 @@ _exec_forked:
 runq_lock: .byte 0xfe
 nextpid_lock: .byte 0xfe ; also guards pid_map
 nextpid: .byte 2
-.ifdef DEBUG
+.if DEBUG
 got_proc_1: .asciz "Created process "
 exec_init_1: .asciz "CPU #"
 exec_init_2: .asciz " started init, pid="
 sched_chose_1: .asciz "pid "
 sched_chose_2: .asciz " scheduled on CPU "
 sched_waiting: .asciz "No process runnable on CPU "
-fork: .asciz "fork"
 .endif
+fork: .asciz "fork"
 
 .bss
 runq: .skip 4

@@ -71,7 +71,7 @@ gp_next_page:
 	POP IX
 	CALL spin_unlock
 	PUSH DE
-.ifdef DEBUG
+.if DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
 	LD HL,got_page_1
@@ -117,7 +117,7 @@ free_page:
 	POP IX
 	INC (IX+1)		; mem_free
 	CALL spin_unlock
-.ifdef DEBUG
+.if DEBUG
 	PUSH BC
 	PUSH DE
 	LD IX,kprint_lock
@@ -150,7 +150,7 @@ mem_map_ready: .ascii "Memory map ready"
 mem_size_1: .asciz "Found 0x"
 mem_size_2: .ascii " pages"
 .byte 0x0a,0
-.ifdef DEBUG
+.if DEBUG
 got_page_1: .asciz "Process "
 freed_page_1 equ got_page_1
 got_page_2: .asciz " got page "
