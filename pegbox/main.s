@@ -50,20 +50,16 @@ INT_timer:			; handler for timer interrupt
 	AND A
 	JR Z,_int_timer_schedule
 	EXX				; we're in a process, so we need to save state.
-	EX AF,AF'		; for now we'll assume we were in kernel-space, so the right stack is already paged in
+	EX AF,AF'		; XXX for now we'll assume we were in kernel-space, so the right stack is already paged in
 	PUSH AF
 	PUSH BC
 	PUSH DE
 	PUSH HL
 	PUSH IX
 	SPSWAP
-	EX AF,AF'		; get PID back
-	CALL get_process
+	CALL sched_exit
 	CALL sched_put
-	EXX
 _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a process, so we can trash regs)
-	EXX
-	EX AF,AF'
 					; but first, check no-one has panicked
 	LD A,(can_start_other_cpus)
 	AND A
@@ -74,7 +70,7 @@ _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a 
 	LD HL,STR_finished
 	CALL kputs
 	CALL panic
-_int_timer_noproc:	; no process found, so just return
+_int_timer_noproc:	; no process found, so just return (to _main_idle)
 	EI
 	RETI
 _int_timer_panicked:; panic on another cpu, so stop

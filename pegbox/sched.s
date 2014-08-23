@@ -23,7 +23,7 @@ get_process:
 	RET
 
 .globl sched_choose	; returns (in IX) a runnable process from the runq, if there is one, else carry flag
-sched_choose:
+sched_choose:		; must be called with interrupts disabled
 	LD IX,runq_lock
 	CALL spin_lock
 	LD HL,runq
@@ -96,6 +96,28 @@ sched_enter:
 	EI				; process must have had interrupts enabled before, because it got pre-empted (or it'd still be running)
 	RET
 
+.globl sched_exit	; returns (in HL) struct process for current pid
+sched_exit:
+.if DEBUG
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,sched_exit_1
+	CALL kputs_unlocked
+	LD A,(IY+1)		; pid
+	CALL kprint_hex_unlocked
+	LD HL,sched_exit_2
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	LD IX,kprint_lock
+	CALL spin_unlock
+.endif
+	LD A,(IY+1)		; pid
+	CALL get_process
+	RET
+
 .globl sched_put	; places process at (struct process *)HL onto the runq and marks it TASK_RUNNABLE
 sched_put:			; must be called with interrupts disabled
 	PUSH HL
@@ -107,14 +129,30 @@ sched_put:			; must be called with interrupts disabled
 	CALL list_add_tail
 	LD IX,runq_lock
 	CALL spin_unlock
+	XOR A
+	LD (IY+1),A		; no pid
+	RET
+
+.globl sched_yield	; voluntarily give up rest of timeslice
+sched_yield:
+	LD A,(IY+1)		; pid
+	PUSH AF
+	PUSH BC
+	PUSH DE
+	PUSH HL
+	PUSH IX
+	DI
+	SPSWAP
+	CALL get_process
+	PUSH HL
 .if DEBUG
 	LD IX,kprint_lock
 	CALL spin_lock
-	LD HL,sched_put_1
+	LD HL,sched_yield_1
 	CALL kputs_unlocked
 	LD A,(IY+1)		; pid
 	CALL kprint_hex_unlocked
-	LD HL,sched_put_2
+	LD HL,sched_yield_2
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
@@ -123,9 +161,11 @@ sched_put:			; must be called with interrupts disabled
 	LD IX,kprint_lock
 	CALL spin_unlock
 .endif
-	XOR A
-	LD (IY+1),A		; no pid
-	RET
+	POP HL
+	CALL sched_put
+	CALL sched_choose
+	CALL NC,sched_enter; it's possible that another CPU could have started running our process between the sched_put and the sched_choose
+	RET				; if no process was found, this will return to _main_idle.  Otherwise it will return to sched_yield's caller
 
 .globl do_fork		; adds new process to tail of runqueue, returns new pid in A.  errno in E
 do_fork:
@@ -388,7 +428,9 @@ _exec_forked:
 	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
 	CALL getppid
 	CALL kprint_hex	; show ppid
-	HALT			; wait for a couple of timeslices, just to demonstrate scheduler
+	CALL sched_yield
+	HALT
+	CALL sched_yield
 	HALT
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
@@ -401,10 +443,11 @@ nextpid: .byte 2
 got_proc_1: .asciz "Created process "
 exec_init_1: .asciz "CPU #"
 exec_init_2: .asciz " started init, pid="
-sched_chose_1: sched_put_1: .asciz "pid "
-sched_chose_2: .asciz " scheduled on CPU "
 sched_waiting: .asciz "No process runnable on CPU "
-sched_put_2: .asciz " preempted on CPU "
+sched_chose_1: sched_exit_1: sched_yield_1: .asciz "pid "
+sched_chose_2: .asciz " scheduled on CPU "
+sched_exit_2: .asciz " preempted on CPU "
+sched_yield_2: .asciz " yield     on CPU "
 .endif
 fork: .asciz "fork"
 
