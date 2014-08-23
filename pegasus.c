@@ -14,18 +14,19 @@
 #include <fcntl.h>
 #include "bits.h"
 #include "ops.h"
+#include "pegbus.h"
+#include "types.h"
 #include "z80.h"
 
 #define NR_CPUS		2
 #define NR_PAGES	64
-
-typedef uint8_t ram_page[0x1000];
 
 typedef struct
 {
 	uint8_t page[NR_CPUS][16];
 	bool iospace[NR_CPUS][16];
 	int8_t lock, using[NR_PAGES];
+	uint8_t irq_owner[128];
 	bool dd[NR_CPUS];
 }
 mmu_t;
@@ -39,11 +40,6 @@ mmu_t;
 # define IO_MMU_GETCPUID	2
 #define IO_TERMINAL	0x10
 
-#define interrupt(ci, _irq)	do { \
-	if (!irq[ci] || _irq < irq[ci]) \
-		irq[ci]=_irq;\
-	} while(0);
-
 #define TTY_BUF_LEN	128
 
 #define FRAME_LEN	350000 /* 1/10 of a second at 3.5MHz */
@@ -56,6 +52,12 @@ int main(void)//int argc, char * argv[])
 	bus_t cbus[NR_CPUS], rbus[NR_PAGES];
 	ram_page ram[NR_PAGES];
 	mmu_t mmu;
+#define IRQ_OWNER(_irq)	mmu.irq_owner[(_irq)>>1]
+#define IRQ(_irq)	interrupt(IRQ_OWNER(_irq), (_irq))
+#define interrupt(ci, _irq)	do { \
+	if (!irq[(ci)] || (_irq) < irq[(ci)]) \
+		irq[(ci)]=(_irq);\
+	} while(0);
 	for(uint8_t page=0;page<NR_PAGES;page++)
 	{
 		mmu.using[page]=-1;
@@ -74,6 +76,10 @@ int main(void)//int argc, char * argv[])
 			mmu.iospace[ci][pi]=false;
 		}
 	}
+	// Attach pegbus devices
+	int pb_test_dev=pegbus_attach_device(0xff0d, 5, pegbus_test_read_trap, pegbus_test_write_trap);
+	if(pb_test_dev<0)
+		fprintf(stderr, "Failed to attach test device to pegbus: %s\n", strerror(pb_test_dev));
 	z80_init(); // initialise decoding tables
 	int prog=open(PROGRAM, O_RDONLY);
 	if(prog<0)
@@ -90,7 +96,6 @@ int main(void)//int argc, char * argv[])
 			break;
 	}
 	close(prog);
-	uint8_t tty_owner=0;
 	char tty_buf[TTY_BUF_LEN];
 	int tty_buf_wp=0, tty_buf_rp=0;
 	int tty_T=0;
@@ -104,7 +109,22 @@ int main(void)//int argc, char * argv[])
 	while(!errupt)
 	{
 		if(tty_buf_wp!=tty_buf_rp)
-			interrupt(tty_owner, IO_TERMINAL);
+			IRQ(IO_TERMINAL);
+		for(unsigned int slot=0;slot<PB_MAX_DEV;slot++)
+		{
+			if(pbdevs[slot].irq)
+			{
+				if(pbdevs[slot].config.command==PB_CMD_SHUTUP) // enforce good pegbus behaviour
+				{
+					fprintf(stderr, "Warning: pegbus device %04x (slot %x) didn't SHUTUP\n", pbdevs[slot].config.device_id, slot);
+					pbdevs[slot].irq=false;
+				}
+				else
+				{
+					IRQ(IO_PEGBUS+(slot*2));
+				}
+			}
+		}
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
 			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
@@ -119,6 +139,11 @@ int main(void)//int argc, char * argv[])
 				{
 					cbus[ci].data=irq[ci];
 					//fprintf(stderr, "Acknowledged IRQ %u on %u\n", irq[ci], ci);
+					if(irq[ci]>=IO_PEGBUS&&irq[ci]<IO_PEGBUS+PB_MAX_DEV*2)
+					{
+						unsigned int slot=(irq[ci]-IO_PEGBUS)/2;
+						pbdevs[slot].irq=false;
+					}
 					irq[ci]=0;
 				}
 			}
@@ -131,14 +156,7 @@ int main(void)//int argc, char * argv[])
 				{
 					if(cbus[ci].tris==TRIS_OUT)
 					{
-						switch(cbus[ci].data)
-						{
-							case IO_TERMINAL:
-								tty_owner=ci;
-							break;
-							default:
-							break;
-						}
+						mmu.irq_owner[cbus[ci].data>>1]=ci;
 					}
 				}
 				else if(port==IO_MMU)
@@ -219,8 +237,31 @@ int main(void)//int argc, char * argv[])
 					uint8_t page=mmu.page[ci][pi];
 					if(mmu.iospace[ci][pi])
 					{
-						// No MMIO devices implemented yet
-						cbus[ci].data=0xff;
+						uint16_t addr=cbus[ci].addr&0xfff;
+						uint8_t slot=page>>4;
+						page&=0xf;
+						addr|=(page<<12);
+						if(slot<PB_MAX_DEV && pbdevs[slot].attached)
+						{
+							if(cbus[slot].tris==TRIS_OUT)
+							{
+								uint8_t data=cbus[ci].data;
+								if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].write)
+									data=pbdevs[slot].write(pbdevs+slot, addr, cbus[ci].data);
+								pbdevs[slot].raw[page][addr]=data;
+							}
+							else /* TRIS_IN */
+							{
+								uint8_t data=pbdevs[slot].raw[page][addr];
+								if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].read)
+									data=pbdevs[slot].read(pbdevs+slot, addr, data);
+								cbus[ci].data=data;
+							}
+						}
+						else /* no device */
+						{
+							cbus[ci].data=0xff;
+						}
 					}
 					else if(page<NR_PAGES)
 					{

@@ -1,14 +1,16 @@
-CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu99 -g
+CFLAGS := -Wall -Wextra -Werror -pedantic --std=gnu11 -g
 
 all: pegasus pegbox
 
 # Rules to build the emulator
-EM_OBJS := pegasus.o z80.o ops.o
+EM_OBJS := pegasus.o z80.o ops.o pegbus.o
 
 pegasus: $(EM_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(EM_OBJS)
 
-pegasus.o: z80.h ops.h
+pegasus.o: z80.h ops.h pegbus.h types.h
+
+pegbus.o: types.h
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<

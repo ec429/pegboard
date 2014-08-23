@@ -35,7 +35,7 @@ However, this serialisation and locking is NOT applied to peripheral device memo
 Reading from a nonexistent page produces 0xff (and writing of course has no effect).
 This scheme allows for a maximum of 256 × 4kB pages, that is a total of 1MB.  (Phrased another way, full physical addresses are 20 bits.)
 
-The paging is controlled through I/O port 0x04, as follows:
+The MMU is controlled through I/O port 0x04, as follows:
 AMSB<15|14|13|12|11|10|09|08|07|06|05|04|03|02|01|00>ALSB  DMSB<7|6|5|4|3|2|1|0>DLSB
 WR  < 0|IO| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Maps memory page ppage into vpage.  If IO bit set, maps in peripheral device memory for MMIO instead.  (Two unused bits, A13 and A12)
 WR  < 1|IO|    prot_bits    | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Sets protection bits on memory page ppage.  If IO bit set, applies to peripheral device memory instead.  (prot_bits interpretation TBD)  (All bits used).
@@ -52,3 +52,23 @@ TIMER INTERRUPT
 
 The timer is on IRQ 2, and interrupts every 350,000 clock cycles (this is 10 times per second at a 3.5MHz clock speed).
 The interrupts are staggered across CPUs, spaced 4096 clock cycles apart.
+
+PERIPHERAL DEVICE BUS
+
+The 'pegbus' involves devices attaching themselves to the MMU; all pegbus peripherals are controlled solely through MMIO, and identified by the high nybble of their ppage number.  (If a device wants to expose more than 64kB of memory, it will have to pretend to be multiple separate devices.)  The first ppage for an IO device should begin with pegbus config space, laid out as follows (provisional):
+struct pegbus_config {
+	uint16_t device_id; /* device IDs 0xff00-0xffff are reserved for experimental use.  Remember that pegboard is little-endian */
+	uint8_t bus_version; /* should be 0 for this version of the spec */
+	uint8_t command;
+	struct pegbus_caps {
+		uint8_t key; /* never 0xff */
+		uint8_t len;
+		uint8_t data[len];
+	} caps[];
+	uint8_t end_of_caps; /* must be 0xff */
+};
+The pegbus does not allow bus-mastering/DMA; the only way for the device to initiate communication is by sending an interrupt.  Device n is associated with IRQ (0x80+n*2), thus the range 0x80-0x9e is reserved for pegbus.
+A pegbus device will not be probed until it sends an interrupt; thus it should do so as soon as it is powered on.
+Defined commands are:
+	0x00	NOP.
+	0xf0	SHUTUP.  The device should produce no further interrupts until any other command is written.
