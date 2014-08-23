@@ -284,9 +284,8 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	PUSH IX
 	LD (IY+1),1		; mark our running process as init, so we can get_page
 	CALL get_page	; If this fails, the system only has one working page...
+	BUG_UNLESS(A)	; ... so let's give up now
 	POP IX
-	AND A
-	CALL Z,panic	; ... so let's give up now
 	LD (IY+1),0		; clear our running process (as we're not actually running init)
 	LD (IX+6),A
 	LD (IX+7),0		; ppid: init has no parent
