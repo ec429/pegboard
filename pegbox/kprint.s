@@ -83,6 +83,25 @@ kprint_hex_unlocked:
 	OUT (0x10),A
 	RET
 
+.globl kprint_half_hex; write low nybble of A as hex to terminal (no 0x prefix), plus trailing \n
+kprint_half_hex:
+	CALL kprint_hex_prepare
+	LD A,D
+	LD IX,kprint_lock
+	CALL spin_lock
+	OUT (0x10),A
+	LD A,0x0a
+	OUT (0x10),A
+	CALL spin_unlock
+	RET
+
+.globl kprint_half_hex_unlocked ; as kprint_half_hex but must already hold the kprint_lock; and no \n
+kprint_half_hex_unlocked:
+	CALL kprint_hex_prepare
+	LD A,D
+	OUT (0x10),A
+	RET
+
 .data
 .globl kprint_lock
 kprint_lock: .byte 0xfe
