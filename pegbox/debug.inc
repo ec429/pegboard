@@ -5,7 +5,7 @@ DEBUG equ 1			; enable debug messages
 
 .macro BUILD_BUG_ON expr; compile-time assertion
 .if \expr
-.error "Assertion failed \expr"
+.error "BUILD_BUG_ON \expr"
 .endif
 .endm
 
