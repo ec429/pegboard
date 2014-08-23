@@ -1,8 +1,6 @@
 .include "debug.inc"
 .include "sched.inc"
-
-PEGBUS_DRIVER_SLOTS	equ 8
-PEGBUS_CMD_SHUTUP	equ 0xf0
+.include "pegbus.inc"
 
 .text
 
@@ -10,6 +8,13 @@ PEGBUS_CMD_SHUTUP	equ 0xf0
 pegbus_setup:
 	LD IX,pegbus_drivers
 	CALL init_list_head
+	LD IX,dummy_driver; register driver for test device (0xff0d)
+	LD (IX+PDRV_ID),0x0d
+	LD (IX+PDRV_ID+1),0xff
+	LD BC,dummy_driver_probe
+	LD (IX+PDRV_PROB),C
+	LD (IX+PDRV_PROB+1),B
+	CALL pegbus_register_driver
 					; hook up the IRQ lines for all 16 possible pegbus slots
 	LD HL,INT_pegbus_0
 	LD DE,(INT_pegbus_1-INT_pegbus_0); makes use of the fact that they're all the same length
@@ -160,30 +165,33 @@ INT_pegbus:
 	RLCA
 	RLCA
 	OUT (C),A		; map in device's first page at 0xf000
-	LD IX,pegbus_devices; device = pegbus_devices+(slot*6)
-	LD A,D
-	RLCA
-	ADD A,D
-	RLCA
+	LD IX,pegbus_devices; device = pegbus_devices+(slot*PEGBUS_DEVICE_SIZE)
+	BUILD_BUG_ON(PEGBUS_DEVICE_SIZE!=8)
+	SLA D
+	SLA D
+	SLA D
 	LD B,0
-	LD C,A
+	LD C,D
 	ADD IX,BC
 	CALL spin_lock
-	LD L,(IX+4)
-	LD H,(IX+5)
+	LD L,(IX+PDEV_DRIV)
+	LD H,(IX+PDEV_DRIV+1)
 	LD A,L
 	OR H
-	JR NZ,INT_pegbus_call_driver
+	JR NZ,_INT_pegbus_call_driver
+	POP DE
+	LD (IX+PDEV_SLOT),D
+	PUSH DE
 	LD HL,(0xf000)
-	LD (IX+1),L
-	LD (IX+2),H
+	LD (IX+PDEV_ID),L
+	LD (IX+PDEV_ID+1),H
 	LD A,(0xf002)
-	LD (IX+3),A
+	LD (IX+PDEV_BVER),A
 	PUSH IX
-	LD IX,pegbus_drivers; find a matching driver (by device_id)
+	LD IX,pegbus_drivers; find a matching driver (by device_id HL)
 _INT_pegbus_next_driver:
-	LD E,(IX+0)
-	LD D,(IX+1)
+	LD E,(IX+PDRV_LIST)
+	LD D,(IX+PDRV_LIST+1)
 	PUSH HL
 	LD HL,pegbus_drivers; end of the list?
 	AND A			; clear carry
@@ -192,22 +200,32 @@ _INT_pegbus_next_driver:
 	JR Z,_INT_pegbus_no_driver_found
 	PUSH DE
 	POP IX
-	LD A,(IX+4)
+	LD A,(IX+PDRV_ID)
 	CP L
 	JR NZ,_INT_pegbus_next_driver
-	LD A,(IX+5)
+	LD A,(IX+PDRV_ID+1)
 	CP H
 	JR NZ,_INT_pegbus_next_driver
-	CALL _INT_pegbus_do_probe
+	PUSH IX
+	POP DE			; driver
+	POP IX			; device
+	LD (IX+PDEV_DRIV),E
+	LD (IX+PDEV_DRIV+1),D
+	PUSH IX
+	PUSH DE
 	POP IX
+	CALL _INT_pegbus_do_probe
+	POP IX			; device
 	CALL spin_unlock
 	JR _INT_pegbus_out
+_INT_pegbus_call_driver:
+	CALL spin_unlock
+	CALL panic
 _INT_pegbus_no_driver_found:
 	LD IX,0xf000	; send it a SHUTUP so we won't get any more interrupts
 	LD (IX+3),PEGBUS_CMD_SHUTUP; if we register a matching driver later, it'll get probed then
 	POP IX
 	CALL spin_unlock
-.if DEBUG
 	PUSH HL
 	LD IX,kprint_lock
 	CALL spin_lock
@@ -223,7 +241,6 @@ _INT_pegbus_no_driver_found:
 	LD A,0x0a
 	CALL kputc_unlocked
 	CALL spin_unlock
-.endif
 _INT_pegbus_out:
 	POP DE			; E=oldpage
 	LD BC,0x0f04	; restore previously mapped page
@@ -233,41 +250,82 @@ _INT_pegbus_out:
 	EX AF,AF'
 	EI
 	RETI
-INT_pegbus_call_driver:
-	CALL spin_unlock
-	CALL panic
 
-_INT_pegbus_do_probe:
-	LD L,(IX+6)
-	LD H,(IX+7)
+_INT_pegbus_do_probe:; ((struct pegbus_driver *)IX)->probe((struct pegbus_device *)(SP+4))
+	LD L,(IX+PDRV_PROB); TODO really we ought to add it to some kind of workthread, rather than doing all this in interrupt context
+	LD H,(IX+PDRV_PROB+1)
 	POP BC			; return address
 	POP IX			; struct pegbus_device
 	PUSH IX
 	PUSH BC
 	JP (HL)
 
+.globl pegbus_register_driver; register (struct pegbus_driver *)IX
+pegbus_register_driver:
+	PUSH IX
+	LD L,(IX+PDRV_ID); get driver->device_id
+	LD H,(IX+PDRV_ID+1)
+	LD IX,pegbus_drivers_lock
+	CALL spin_lock
+	LD B,16
+	LD IX,pegbus_devices
+_pegbus_register_driver_loop:
+	LD A,(IX+PDEV_DRIV); check for device->driver
+	OR (IX+PDEV_DRIV+1)
+	JR NZ,_pegbus_register_driver_next; there's already a driver on this device, so skip it
+	PUSH HL
+	LD E,(IX+PDEV_ID); device->device_id
+	LD D,(IX+PDEV_ID+1)
+	SBC HL,DE
+	POP HL
+	JR NZ,_pegbus_register_driver_next
+	POP DE			; driver
+	PUSH DE
+	PUSH BC
+	PUSH IX			; device
+	LD (IX+PDEV_DRIV),E; device->driver=driver
+	LD (IX+PDEV_DRIV+1),D
+	CALL _INT_pegbus_do_probe
+	POP IX
+	POP BC
+_pegbus_register_driver_next:
+	LD DE,PEGBUS_DEVICE_SIZE
+	ADD IX,DE
+	DJNZ _pegbus_register_driver_loop
+	LD DE,pegbus_drivers
+	POP HL
+	CALL list_add_tail
+	LD IX,pegbus_drivers_lock
+	CALL spin_unlock
+	RET
+
+dummy_driver_probe:	; probe device *IX
+	LD A,(IX+PDEV_SLOT)
+	LD BC,0x4f04
+	RLCA
+	RLCA
+	RLCA
+	RLCA
+	OUT (C),A		; map in device's first page at 0xf000
+	LD A,PEGBUS_CMD_SHUTUP
+	LD (0xf003),A
+	LD HL,dummy_driver_probed
+	CALL kputs
+	RET
+
 .data
 .if DEBUG
 pegbus_irq_1: .asciz "pegbus device "
 pegbus_irq_2: .asciz " interrupted CPU "
-pegbus_no_driver: .asciz "No driver for pegbus device_id "
 .endif
+pegbus_no_driver: .asciz "No driver for pegbus device_id "
+dummy_driver_probed: .ascii "Probed a dummy device"
+.byte 0x0a,0
+pegbus_drivers_lock: .byte 0xfe
 pegbus_devices:.rept 16
-; struct pegbus_device {
-;	spinlock_t lock;
-;	uint16_t device_id;
-;	uint8_t bus_version;
-;	struct pegbus_driver *driver;
-;}
-.byte 0xfe,0,0,0,0,0
+.byte 0xfe,0,0,0,0,0,0,0
 .endr
 
 .bss
-pegbus_drivers: .skip 4
-pegbus_driver_slots: .skip PEGBUS_DRIVER_SLOTS*PEGBUS_DRIVER_SIZE
-; struct pegbus_driver {
-;	struct list_head list;
-;	uint16_t device_id;
-;	void (*probe)(struct pegbus_device *device);
-;}
-PEGBUS_DRIVER_SIZE	equ 8; sizeof(struct pegbus_driver)
+pegbus_drivers: .skip 4; list_head
+dummy_driver: .skip PEGBUS_DRIVER_SIZE

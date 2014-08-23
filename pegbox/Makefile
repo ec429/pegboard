@@ -16,7 +16,7 @@ main.zo: sched.inc list.inc mem.inc
 sched.zo: sched.inc list.inc mem.inc
 mem.zo: mem.inc
 panic.zo: mem.inc
-pegbus.zo: sched.inc list.inc mem.inc
+pegbus.zo: pegbus.inc sched.inc list.inc mem.inc
 
 %.zo: %.s errno.inc debug.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
