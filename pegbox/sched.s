@@ -428,10 +428,6 @@ _exec_forked:
 	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
 	CALL getppid
 	CALL kprint_hex	; show ppid
-	CALL sched_yield
-	HALT
-	CALL sched_yield
-	HALT
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
