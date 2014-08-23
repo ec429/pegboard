@@ -8,10 +8,10 @@
 pegbus_setup:
 	LD IX,pegbus_drivers
 	CALL init_list_head
-	LD IX,dummy_driver; register driver for test device (0xff0d)
+	LD IX,test_device_driver; register driver for test device (0xff0d)
 	LD (IX+PDRV_ID),0x0d
 	LD (IX+PDRV_ID+1),0xff
-	LD BC,dummy_driver_probe
+	LD BC,test_device_driver_probe
 	LD (IX+PDRV_PROB),C
 	LD (IX+PDRV_PROB+1),B
 	CALL pegbus_register_driver
@@ -145,7 +145,7 @@ INT_pegbus:
 	CALL kputs_unlocked
 	POP AF			; pegbus slot id
 	PUSH AF
-	CALL kprint_hex_unlocked
+	CALL kprint_half_hex_unlocked
 	LD HL,pegbus_irq_2
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
@@ -299,8 +299,9 @@ _pegbus_register_driver_next:
 	CALL spin_unlock
 	RET
 
-dummy_driver_probe:	; probe device *IX
+test_device_driver_probe:	; probe device *IX
 	LD A,(IX+PDEV_SLOT)
+	PUSH AF
 	LD BC,0x4f04
 	RLCA
 	RLCA
@@ -309,18 +310,24 @@ dummy_driver_probe:	; probe device *IX
 	OUT (C),A		; map in device's first page at 0xf000
 	LD A,PEGBUS_CMD_SHUTUP
 	LD (0xf003),A
-	LD HL,dummy_driver_probed
-	CALL kputs
+	LD HL,test_device_driver_probed
+	LD IX,kprint_lock
+	CALL spin_lock
+	CALL kputs_unlocked
+	POP AF
+	CALL kprint_half_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
 	RET
 
 .data
 .if DEBUG
-pegbus_irq_1: .asciz "pegbus device "
+pegbus_irq_1: .asciz "pegbus device in slot "
 pegbus_irq_2: .asciz " interrupted CPU "
 .endif
 pegbus_no_driver: .asciz "No driver for pegbus device_id "
-dummy_driver_probed: .ascii "Probed a dummy device"
-.byte 0x0a,0
+test_device_driver_probed: .asciz "test_device: Probed device (id 0xff0d) in slot "
 pegbus_drivers_lock: .byte 0xfe
 pegbus_devices:.rept 16
 .byte 0xfe,0,0,0,0,0,0,0
@@ -328,4 +335,4 @@ pegbus_devices:.rept 16
 
 .bss
 pegbus_drivers: .skip 4; list_head
-dummy_driver: .skip PEGBUS_DRIVER_SIZE
+test_device_driver: .skip PEGBUS_DRIVER_SIZE
