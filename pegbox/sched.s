@@ -7,12 +7,20 @@ PROC_SLOTS equ	8
 
 .text
 
-.macro spswap		; swaps SP with [MEM_SAVESP]
-	LD HL,0
-	ADD HL,SP
-	LD SP,(MEM_SAVESP)
-	LD (MEM_SAVESP),HL
-.endm
+.globl get_process	; returns (in HL) struct process for pid A
+get_process:
+	BUILD_BUG_ON(PROCESS_SIZE != 8)
+	LD HL,procs		; slot = procs + (pid*PROCESS_SIZE)
+	LD C,A
+	LD B,0
+	SLA C
+	RL B
+	SLA C
+	RL B
+	SLA C
+	RL B
+	ADD HL,BC
+	RET
 
 .globl sched_choose	; returns (in IX) a runnable process from the runq, if there is one, else carry flag
 sched_choose:
@@ -79,8 +87,7 @@ sched_enter:
 	LD D,(IX+6)
 	LD BC,0x0100|IO_MMU
 	OUT (C),D
-	LD SP,(MEM_SAVESP)
-	LD (MEM_SAVESP),IY
+	SPSWAP
 	POP IX
 	POP HL
 	POP DE
@@ -89,23 +96,44 @@ sched_enter:
 	EI				; process must have had interrupts enabled before, because it got pre-empted (or it'd still be running)
 	RET
 
+.globl sched_put	; places process at (struct process *)HL onto the runq and marks it TASK_RUNNABLE
+sched_put:			; must be called with interrupts disabled
+	PUSH HL
+	POP IX
+	LD (IX+5),TASK_RUNNABLE
+	LD IX,runq_lock
+	CALL spin_lock
+	LD DE,runq
+	CALL list_add_tail
+	LD IX,runq_lock
+	CALL spin_unlock
+.if DEBUG
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,sched_put_1
+	CALL kputs_unlocked
+	LD A,(IY+1)		; pid
+	CALL kprint_hex_unlocked
+	LD HL,sched_put_2
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	LD IX,kprint_lock
+	CALL spin_unlock
+.endif
+	XOR A
+	LD (IY+1),A		; no pid
+	RET
+
 .globl do_fork		; adds new process to tail of runqueue, returns new pid in A.  errno in E
 do_fork:
 	CALL choose_pid
 	CP 1
 	RET C
-	BUILD_BUG_ON(PROCESS_SIZE != 8)
-	LD HL,procs		; slot = procs + (pid*PROCESS_SIZE)
 	PUSH AF			; stash child pid, carry flag is clear
-	LD C,A
-	LD B,0
-	SLA C
-	RL B
-	SLA C
-	RL B
-	SLA C
-	RL B
-	ADD HL,BC
+	CALL get_process
 	PUSH HL
 	POP IX
 	LD (IX+4),A
@@ -360,6 +388,8 @@ _exec_forked:
 	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
 	CALL getppid
 	CALL kprint_hex	; show ppid
+	HALT			; wait for a couple of timeslices, just to demonstrate scheduler
+	HALT
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
@@ -371,9 +401,10 @@ nextpid: .byte 2
 got_proc_1: .asciz "Created process "
 exec_init_1: .asciz "CPU #"
 exec_init_2: .asciz " started init, pid="
-sched_chose_1: .asciz "pid "
+sched_chose_1: sched_put_1: .asciz "pid "
 sched_chose_2: .asciz " scheduled on CPU "
 sched_waiting: .asciz "No process runnable on CPU "
+sched_put_2: .asciz " preempted on CPU "
 .endif
 fork: .asciz "fork"
 

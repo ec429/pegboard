@@ -1,4 +1,8 @@
+.ifndef _SCHED_INC
+_SCHED_INC equ 1
+
 .include "list.inc"
+.include "mem.inc"
 
 ; struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; byte ppid;};
 PROCESS_SIZE equ	8
@@ -23,3 +27,12 @@ TASK_UNINTERRUPTIBLE equ 3
 	SRL H
 	RR L
 .endm
+
+.macro spswap		; swaps SP with [MEM_SAVESP]
+	LD HL,0
+	ADD HL,SP
+	LD SP,(MEM_SAVESP)
+	LD (MEM_SAVESP),HL
+.endm
+
+.endif

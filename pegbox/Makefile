@@ -11,13 +11,13 @@ all: kernel.bin
 kernel.bin: $(TARGET_OBJS) ../m80.ld
 	$(TARGET_LD) -o $@ $(TARGET_LDFLAGS) $(TARGET_OBJS) -Map kernel.sym
 
-init.zo: sched.inc list.inc
-main.zo: sched.inc list.inc
-sched.zo: sched.inc list.inc mem.inc debug.inc
-mem.zo: mem.inc debug.inc
+init.zo: sched.inc list.inc mem.inc
+main.zo: sched.inc list.inc mem.inc
+sched.zo: sched.inc list.inc mem.inc
+mem.zo: mem.inc
 panic.zo: mem.inc
 
-%.zo: %.s errno.inc
+%.zo: %.s errno.inc debug.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
 
 FORCE:

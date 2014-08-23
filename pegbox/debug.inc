@@ -1,3 +1,6 @@
+.ifndef _DEBUG_INC
+_DEBUG_INC equ 1
+
 DEBUG equ 1			; enable debug messages
 
 .macro BUILD_BUG_ON expr; compile-time assertion
@@ -34,3 +37,5 @@ DEBUG equ 1			; enable debug messages
 	OR L
 	CALL Z,panic
 .endm
+
+.endif

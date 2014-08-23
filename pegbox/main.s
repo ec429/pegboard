@@ -1,4 +1,5 @@
 .include "sched.inc"
+.include "debug.inc"
 .text
 
 .globl main			; per-CPU OS entry point.  Does not return
@@ -48,10 +49,18 @@ INT_timer:			; handler for timer interrupt
 	LD A,(IY+1)		; current PID
 	AND A
 	JR Z,_int_timer_schedule
+	EXX				; we're in a process, so we need to save state.
+	EX AF,AF'		; for now we'll assume we were in kernel-space, so the right stack is already paged in
+	PUSH AF
+	PUSH BC
+	PUSH DE
+	PUSH HL
+	PUSH IX
+	SPSWAP
+	EX AF,AF'		; get PID back
+	CALL get_process
+	CALL sched_put
 	EXX
-	EX AF,AF'		; a process is already running, let it continue
-	EI
-	RETI			; we will have a proper scheduler eventually, but not yet
 _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a process, so we can trash regs)
 	EXX
 	EX AF,AF'
