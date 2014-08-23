@@ -13,8 +13,8 @@ kernel.bin: $(TARGET_OBJS) ../m80.ld
 
 init.zo: sched.inc list.inc
 main.zo: sched.inc list.inc
-sched.zo: sched.inc list.inc mem.inc flags.inc
-mem.zo: mem.inc flags.inc
+sched.zo: sched.inc list.inc mem.inc debug.inc
+mem.zo: mem.inc debug.inc
 panic.zo: mem.inc
 
 %.zo: %.s errno.inc

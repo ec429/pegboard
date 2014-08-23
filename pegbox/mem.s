@@ -1,6 +1,6 @@
 .include "errno.inc"
 .include "mem.inc"
-.include "flags.inc"
+.include "debug.inc"
 
 .text
 

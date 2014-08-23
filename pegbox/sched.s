@@ -1,7 +1,7 @@
 .include "sched.inc"
 .include "mem.inc"
 .include "errno.inc"
-.include "flags.inc"
+.include "debug.inc"
 
 PROC_SLOTS equ	8
 
@@ -94,9 +94,7 @@ do_fork:
 	CALL choose_pid
 	CP 1
 	RET C
-.if PROCESS_SIZE != 8
-.error "assert PROCESS_SIZE == 8"
-.endif
+	BUILD_BUG_ON(PROCESS_SIZE != 8)
 	LD HL,procs		; slot = procs + (pid*PROCESS_SIZE)
 	PUSH AF			; stash child pid, carry flag is clear
 	LD C,A
