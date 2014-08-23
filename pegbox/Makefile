@@ -3,7 +3,7 @@ TARGET_ASFLAGS := -z80
 TARGET_LD := z80-unknown-coff-ld
 TARGET_LDFLAGS := -T ../m80.ld
 
-TARGET_OBJS := init.zo main.zo spinlock.zo kprint.zo mem.zo errno.zo sched.zo panic.zo list.zo
+TARGET_OBJS := init.zo main.zo spinlock.zo kprint.zo mem.zo errno.zo sched.zo panic.zo list.zo pegbus.zo
 
 all: kernel.bin
 
@@ -16,6 +16,7 @@ main.zo: sched.inc list.inc mem.inc
 sched.zo: sched.inc list.inc mem.inc
 mem.zo: mem.inc
 panic.zo: mem.inc
+pegbus.zo: sched.inc list.inc mem.inc
 
 %.zo: %.s errno.inc debug.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@

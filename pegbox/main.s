@@ -28,6 +28,7 @@ cpu0_setup:
 	CALL setup_mem_map
 	CALL setup_scheduler
 	CALL setup_interrupts
+	CALL pegbus_setup
 	LD HL,STR_booting
 	CALL kputs
 	LD HL,can_start_other_cpus
@@ -79,8 +80,27 @@ _int_timer_panicked:; panic on another cpu, so stop
 .section isr
 .globl unhandled_irq
 unhandled_irq:
-EI
-RETI
+	EX AF,AF'
+	EXX
+	PUSH IX
+	PERCPU
+	LD IY,0xfffe
+	EX DE,HL
+	ADD IY,DE		; IY points to the percpu_struct
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,unh_irq
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	POP IX
+	EXX
+	EX AF,AF'
+	EI
+	RETI
 
 .section ivt
 .skip 0x100,0x0e	; fill interrupt table with 0x0e0e (unhandled IRQ)
@@ -93,3 +113,4 @@ STR_finished: .ascii "Failed to sched_enter!"
 start_msg_1: .asciz "CPU #"
 start_msg_2: .ascii " online"
 .byte 0x0a,0
+unh_irq: .asciz "Unhandled IRQ on CPU "
