@@ -236,10 +236,9 @@ do_fork:
 	IN D,(C)		; get prot_bits - specifically the IO bit
 	PUSH DE
 	OUT (C),A		; page in new stack page at pi VPAGE_FORK_STACK
-	LD HL,VPAGE_STACK
-	PUSH HL
-	POP BC
-	LD DE,MEM_STKTOP
+	LD HL,MEM_SAVESP; bottom of stack page
+	LD DE,MEM_STKTOP; top of stack page
+	LD BC,PAGE_SIZE
 	LDIR			; do the copy
 	POP DE
 	LD A,2
