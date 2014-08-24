@@ -64,7 +64,6 @@ Process stack page layout:
 	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX and save SP (we do not save shadow registers, nor IY which should always point to the percpu_struct).
 
 Next steps:
-	Implement sleeping locks (semaphores).
 	Define a simple virtual disk device, and write a driver for it.
 	Implement a kmalloc/kfree.
 	Write useful print routines (a simple printk?)
