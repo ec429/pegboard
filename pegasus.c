@@ -128,7 +128,7 @@ int main(void)//int argc, char * argv[])
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
 			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
-			if(T==(((int32_t)ci)<<12))
+			if(T==(((int32_t)ci)<<10))
 			{
 				irq[ci]=IO_TIMER;
 				//fprintf(stderr, "Raised IRQ_TIMER on %u\n", ci);

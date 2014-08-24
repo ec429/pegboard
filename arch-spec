@@ -51,7 +51,7 @@ The serial terminal is attached on I/O port 0x10, and assigned the corresponding
 TIMER INTERRUPT
 
 The timer is on IRQ 2, and interrupts every 350,000 clock cycles (this is 10 times per second at a 3.5MHz clock speed).
-The interrupts are staggered across CPUs, spaced 4096 clock cycles apart.
+The interrupts are staggered across CPUs, spaced 1024 clock cycles apart.
 
 PERIPHERAL DEVICE BUS
 
