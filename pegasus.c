@@ -229,41 +229,41 @@ int main(void)//int argc, char * argv[])
 			}
 			if(cbus[ci].mreq&&cbus[ci].tris)
 			{
-				if(mmu.lock>=0 && mmu.lock!=ci)
+				uint8_t pi=cbus[ci].addr>>12;
+				uint8_t page=mmu.page[ci][pi];
+				if(mmu.iospace[ci][pi])
 				{
-					cbus[ci].waitline=true;
+					uint16_t addr=cbus[ci].addr&0xfff;
+					uint8_t slot=page>>4;
+					page&=0xf;
+					addr|=(page<<12);
+					if(slot<PB_MAX_DEV && pbdevs[slot].attached)
+					{
+						if(cbus[slot].tris==TRIS_OUT)
+						{
+							uint8_t data=cbus[ci].data;
+							if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].write)
+								data=pbdevs[slot].write(pbdevs+slot, addr, cbus[ci].data);
+							pbdevs[slot].raw[page][addr]=data;
+						}
+						else /* TRIS_IN */
+						{
+							uint8_t data=pbdevs[slot].raw[page][addr];
+							if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].read)
+								data=pbdevs[slot].read(pbdevs+slot, addr, data);
+							cbus[ci].data=data;
+						}
+					}
+					else /* no device */
+					{
+						cbus[ci].data=0xff;
+					}
 				}
 				else
 				{
-					uint8_t pi=cbus[ci].addr>>12;
-					uint8_t page=mmu.page[ci][pi];
-					if(mmu.iospace[ci][pi])
+					if(mmu.lock>=0 && mmu.lock!=ci)
 					{
-						uint16_t addr=cbus[ci].addr&0xfff;
-						uint8_t slot=page>>4;
-						page&=0xf;
-						addr|=(page<<12);
-						if(slot<PB_MAX_DEV && pbdevs[slot].attached)
-						{
-							if(cbus[slot].tris==TRIS_OUT)
-							{
-								uint8_t data=cbus[ci].data;
-								if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].write)
-									data=pbdevs[slot].write(pbdevs+slot, addr, cbus[ci].data);
-								pbdevs[slot].raw[page][addr]=data;
-							}
-							else /* TRIS_IN */
-							{
-								uint8_t data=pbdevs[slot].raw[page][addr];
-								if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].read)
-									data=pbdevs[slot].read(pbdevs+slot, addr, data);
-								cbus[ci].data=data;
-							}
-						}
-						else /* no device */
-						{
-							cbus[ci].data=0xff;
-						}
+						cbus[ci].waitline=true;
 					}
 					else if(page<NR_PAGES)
 					{
