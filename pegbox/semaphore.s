@@ -30,7 +30,7 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	SPIN_LOCK_AT SEMA_LOCK
 	;if (!sem->value) { /* contention case - put us on the waitq */
 	LD A,(IX+SEMA_VAL)
-	DEC A
+	DEC A			; sets C iff we go negative
 	JR NC,_down_fast
 	;	current->status = wstate;
 	CALL get_current
@@ -50,6 +50,19 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	;	sched_sleep();
 	CALL sched_sleep
 	;	/* We've returned from sched_sleep(), so we must hold the sem now */
+.if DEBUG
+	PUSH IX
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,down_after_contention
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	POP IX
+.endif
 	RET
 	;} else { /* no contention - it's ours */
 _down_fast:
@@ -58,6 +71,19 @@ _down_fast:
 	;	spin_unlock(sem->lock);
 	SPIN_UNLOCK_AT SEMA_LOCK
 	;}
+.if DEBUG
+	PUSH IX
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,down_without_contention
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	POP IX
+.endif
 	RET
 
 .globl up			; (struct semaphore *)IX
@@ -73,6 +99,19 @@ up:
 	CALL Z,panic
 	;	spin_unlock(sem->lock);
 	SPIN_UNLOCK_AT SEMA_LOCK
+.if DEBUG
+	PUSH IX
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,up_no_waiter
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	POP IX
+.endif
 	RET
 	;} else { /* wake up first waiter */
 _up_wake:
@@ -97,4 +136,25 @@ _up_wake:
 	CALL spin_unlock
 	;	wake_one_cpu(); /* not implemented yet, requires IPIs */
 	;}
+.if DEBUG
+	PUSH IX
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,up_woke_waiter
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	POP IX
+.endif
 	RET
+
+.data:
+.if DEBUG
+down_after_contention: .asciz "Down after contention on CPU "
+down_without_contention: .asciz "Down without contention on CPU "
+up_no_waiter: .asciz "Up (no waiter) on CPU "
+up_woke_waiter: .asciz "Up (woke waiter) on CPU "
+.endif
