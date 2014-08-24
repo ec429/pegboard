@@ -155,7 +155,7 @@ INT_pegbus:
 	CALL spin_unlock
 	POP AF
 .endif
-	LD BC,0x0f04	; get page mapped in at 0xf000
+	LD BC,0x0f00|IO_MMU; get page mapped in at 0xf000
 	IN E,(C)
 	LD D,A
 	PUSH DE
@@ -243,7 +243,7 @@ _INT_pegbus_no_driver_found:
 	CALL spin_unlock
 _INT_pegbus_out:
 	POP DE			; E=oldpage
-	LD BC,0x0f04	; restore previously mapped page
+	LD BC,0x0f00|IO_MMU; restore previously mapped page
 	OUT (C),E
 	POP IX
 	EXX
@@ -302,7 +302,7 @@ _pegbus_register_driver_next:
 test_device_driver_probe:	; probe device *IX
 	LD A,(IX+PDEV_SLOT)
 	PUSH AF
-	LD BC,0x4f04
+	LD BC,0x4f00|IO_MMU
 	RLCA
 	RLCA
 	RLCA
