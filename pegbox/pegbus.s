@@ -157,8 +157,11 @@ INT_pegbus:
 .endif
 	LD BC,0x0f00|IO_MMU; get page mapped in at 0xf000
 	IN E,(C)
-	LD D,A
+	LD B,0x1f
+	IN D,(C)		; get prot_bits - specifically the IO bit
 	PUSH DE
+	LD D,A
+	PUSH AF
 	LD B,0x4f
 	RLCA
 	RLCA
@@ -179,9 +182,8 @@ INT_pegbus:
 	LD A,L
 	OR H
 	JR NZ,_INT_pegbus_call_driver
-	POP DE
-	LD (IX+PDEV_SLOT),D
-	PUSH DE
+	POP AF
+	LD (IX+PDEV_SLOT),A
 	LD HL,(0xf000)
 	LD (IX+PDEV_ID),L
 	LD (IX+PDEV_ID+1),H
@@ -242,8 +244,15 @@ _INT_pegbus_no_driver_found:
 	CALL kputc_unlocked
 	CALL spin_unlock
 _INT_pegbus_out:
-	POP DE			; E=oldpage
+	POP DE			; E=oldpage, D=oldprotbits
 	LD BC,0x0f00|IO_MMU; restore previously mapped page
+	LD A,2
+	AND D
+	RRCA
+	RRCA
+	RRCA			; IO bit
+	OR B
+	LD B,A
 	OUT (C),E
 	POP IX
 	EXX
@@ -299,9 +308,14 @@ _pegbus_register_driver_next:
 	CALL spin_unlock
 	RET
 
-test_device_driver_probe:	; probe device *IX
+test_device_driver_probe:; probe device *IX
 	LD A,(IX+PDEV_SLOT)
 	PUSH AF
+	LD BC,0x0f00|IO_MMU; get page mapped in at 0xf000
+	IN E,(C)
+	LD B,0x1f
+	IN D,(C)		; get prot_bits - specifically the IO bit
+	PUSH DE
 	LD BC,0x4f00|IO_MMU
 	RLCA
 	RLCA
@@ -310,6 +324,16 @@ test_device_driver_probe:	; probe device *IX
 	OUT (C),A		; map in device's first page at 0xf000
 	LD A,PEGBUS_CMD_SHUTUP
 	LD (0xf003),A
+	POP DE			; E=oldpage, D=oldprotbits
+	LD BC,0x0f00|IO_MMU; restore previously mapped page
+	LD A,2
+	AND D
+	RRCA
+	RRCA
+	RRCA			; IO bit
+	OR B
+	LD B,A
+	OUT (C),E
 	LD HL,test_device_driver_probed
 	LD IX,kprint_lock
 	CALL spin_lock
