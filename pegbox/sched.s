@@ -2,6 +2,7 @@
 .include "mem.inc"
 .include "errno.inc"
 .include "debug.inc"
+.include "semaphore.inc"
 
 PROC_SLOTS equ	8
 
@@ -464,6 +465,8 @@ exec_init:
 	CALL kputc_unlocked
 	CALL spin_unlock
 .endif
+	LD IX,test_sema
+	CALL sema_init_mutex
 	CALL do_fork
 	JR NC,_exec_forked
 	LD HL,fork
@@ -473,6 +476,11 @@ _exec_forked:
 	CALL kprint_hex	; show value of A register (should be <child pid> in parent, 0 in child)
 	CALL getppid
 	CALL kprint_hex	; show ppid
+	LD IX,test_sema
+	CALL down
+	CALL sched_yield
+	CALL up
+	CALL sched_yield
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
@@ -497,3 +505,4 @@ fork: .asciz "fork"
 runq: .skip 4
 procs: .skip PROCESS_SIZE * PROC_SLOTS; we're actually being inefficient and reserving a slot for the non-existent pid 0
 pid_map: .skip (PROC_SLOTS+7)/8
+test_sema: .skip SEMAPHORE_SIZE
