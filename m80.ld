@@ -3,9 +3,9 @@ OUTPUT_FORMAT("binary")
 OUTPUT_ARCH("z80")
 MEMORY {
    initprog : ORIGIN = 0x0, LENGTH = 0x42
-   program : ORIGIN = 0x42, LENGTH = 0xdcc
-   isr : ORIGIN = 0xe0e, LENGTH = 0xf2 /* interrupt service routine */
-   ivt : ORIGIN = 0xf00, LENGTH = 0x100 /* interrupt vector table */
+   program : ORIGIN = 0x42, LENGTH = 0x1dcc
+   isr : ORIGIN = 0x1e1e, LENGTH = 0xe2 /* interrupt service routine */
+   ivt : ORIGIN = 0x1f00, LENGTH = 0x100 /* interrupt vector table */
 }
 SECTIONS
 {
