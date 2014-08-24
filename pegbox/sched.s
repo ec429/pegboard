@@ -85,7 +85,7 @@ sched_enter:
 	LD (IX+5),TASK_RUNNING
 					; page in process stack
 	LD D,(IX+6)
-	LD BC,0x0100|IO_MMU
+	LD BC,(VPAGE_STACK<<8)|IO_MMU
 	OUT (C),D
 	SPSWAP
 	POP IX
@@ -197,13 +197,26 @@ do_fork:
 	LD (MEM_SAVESP),SP
 					; copy stack page
 	LD A,(IX+6)
-	LD BC,0x0200|IO_MMU
-	OUT (C),A		; page in stack at pi 2
-	LD HL,0x1000
+	LD BC,(VPAGE_FORK_STACK<<8)|IO_MMU
+	IN E,(C)		; get page currently mapped in
+	LD B,0x10|VPAGE_FORK_STACK
+	IN D,(C)		; get prot_bits - specifically the IO bit
+	PUSH DE
+	OUT (C),A		; page in new stack page at pi VPAGE_FORK_STACK
+	LD HL,VPAGE_STACK
 	PUSH HL
 	POP BC
 	LD DE,MEM_STKTOP
 	LDIR			; do the copy
+	POP DE
+	LD A,2
+	AND D
+	RRCA
+	RRCA
+	RRCA			; IO bit
+	OR B
+	LD B,A
+	OUT (C),E		; page oldpage back in
 					; mark task as runnable
 	POP IX
 	POP HL
@@ -357,7 +370,7 @@ setup_scheduler:	; no need to take locks as we run this before allowing other CP
 	LD (IY+1),0		; clear our running process (as we're not actually running init)
 	LD (IX+6),A
 	LD (IX+7),0		; ppid: init has no parent
-	LD BC,0x0100|IO_MMU
+	LD BC,(VPAGE_STACK<<8)|IO_MMU
 	OUT (C),A		; page in init's stack page at pi=1
 	LD HL,MEM_STKTOP
 	LD (MEM_SAVESP),HL

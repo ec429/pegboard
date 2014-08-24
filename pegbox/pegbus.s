@@ -18,37 +18,37 @@ pegbus_setup:
 					; hook up the IRQ lines for all 16 possible pegbus slots
 	LD HL,INT_pegbus_0
 	LD DE,(INT_pegbus_1-INT_pegbus_0); makes use of the fact that they're all the same length
-	LD (0x0f80),HL
+	LD (ivtbl+0x80),HL
 	ADD HL,DE
-	LD (0x0f82),HL
+	LD (ivtbl+0x82),HL
 	ADD HL,DE
-	LD (0x0f84),HL
+	LD (ivtbl+0x84),HL
 	ADD HL,DE
-	LD (0x0f86),HL
+	LD (ivtbl+0x86),HL
 	ADD HL,DE
-	LD (0x0f88),HL
+	LD (ivtbl+0x88),HL
 	ADD HL,DE
-	LD (0x0f8a),HL
+	LD (ivtbl+0x8a),HL
 	ADD HL,DE
-	LD (0x0f8c),HL
+	LD (ivtbl+0x8c),HL
 	ADD HL,DE
-	LD (0x0f8e),HL
+	LD (ivtbl+0x8e),HL
 	ADD HL,DE
-	LD (0x0f90),HL
+	LD (ivtbl+0x90),HL
 	ADD HL,DE
-	LD (0x0f92),HL
+	LD (ivtbl+0x92),HL
 	ADD HL,DE
-	LD (0x0f94),HL
+	LD (ivtbl+0x94),HL
 	ADD HL,DE
-	LD (0x0f96),HL
+	LD (ivtbl+0x96),HL
 	ADD HL,DE
-	LD (0x0f98),HL
+	LD (ivtbl+0x98),HL
 	ADD HL,DE
-	LD (0x0f9a),HL
+	LD (ivtbl+0x9a),HL
 	ADD HL,DE
-	LD (0x0f9c),HL
+	LD (ivtbl+0x9c),HL
 	ADD HL,DE
-	LD (0x0f9e),HL
+	LD (ivtbl+0x9e),HL
 	RET
 
 INT_pegbus_0:

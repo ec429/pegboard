@@ -9,15 +9,15 @@ setup_mem_map:
 	LD IX,mem_lock
 	CALL spin_lock
 	LD (IX+1),0
-	LD BC,0xfd
+	LD BC,0xfe-KERNEL_PPAGES
 	LD DE,mem_map+1
 	LD HL,mem_map
 	LD (HL),0
 	LDIR
 	LD C,IO_MMU
-	LD B,1
-	LD D,B
-	LD HL,0x1000
+	LD B,VPAGE_STACK
+	LD D,KERNEL_PPAGES
+	LD HL,MEM_SAVESP
 smm_next_page:
 	OUT (C),D		; set pi 1 to page D
 	XOR A
@@ -162,4 +162,4 @@ mem_lock: .byte 0xfe
 mem_free: .byte 0	; mustn't be in .bss as we depend on it being mem_lock+1
 
 .bss
-mem_map: .skip 255
+mem_map: .skip 256-KERNEL_PPAGES

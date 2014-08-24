@@ -37,7 +37,7 @@ cpu0_setup:
 
 setup_interrupts:
 	LD HL,INT_timer	; plumb timer interrupt
-	LD (0x0f02),HL
+	LD (ivtbl+2),HL
 	RET
 
 INT_timer:			; handler for timer interrupt
@@ -103,7 +103,11 @@ unhandled_irq:
 	RETI
 
 .section ivt
-.skip 0x100,0x0e	; fill interrupt table with 0x0e0e (unhandled IRQ)
+.globl ivtbl
+ivtbl:
+.rept 0x80
+.word unhandled_irq	; fill interrupt table with unhandled_IRQ vector
+.endr
 
 .data
 STR_booting: .ascii "Booting PEGBOx kernel 0.0.1-pre"
