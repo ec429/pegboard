@@ -1,9 +1,16 @@
 .include "sched.inc"
 .include "debug.inc"
+.include "mem.inc"
 .text
 
 .globl main			; per-CPU OS entry point.  Does not return
 main:
+	LD A,1			; page in all kernel ppages
+_main_page_loop:
+	OUT (4),A		; page in A at pi A
+	INC A
+	CP KERNEL_PPAGES
+	JR NZ,_main_page_loop
 	LD A,0x0f		; set intvec = 0x0f
 	LD I,A
 ; we are now online
