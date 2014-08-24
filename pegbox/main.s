@@ -11,7 +11,7 @@ _main_page_loop:
 	INC A
 	CP KERNEL_PPAGES
 	JR NZ,_main_page_loop
-	LD A,0x0f		; set intvec = 0x0f
+	LD A,0x02		; set intvec = 0x02
 	LD I,A
 ; we are now online
 	LD IX,kprint_lock
