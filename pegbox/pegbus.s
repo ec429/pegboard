@@ -294,6 +294,8 @@ _pegbus_register_driver_loop:
 	PUSH IX			; device
 	LD (IX+PDEV_DRIV),E; device->driver=driver
 	LD (IX+PDEV_DRIV+1),D
+	PUSH DE
+	POP IX			; driver
 	CALL _INT_pegbus_do_probe
 	POP IX
 	POP BC
