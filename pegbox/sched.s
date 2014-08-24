@@ -480,6 +480,7 @@ _exec_forked:
 	CALL sched_yield
 	CALL up
 	CALL sched_yield
+	CALL sched_yield
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
