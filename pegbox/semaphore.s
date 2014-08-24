@@ -30,8 +30,8 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	SPIN_LOCK_AT SEMA_LOCK
 	;if (!sem->value) { /* contention case - put us on the waitq */
 	LD A,(IX+SEMA_VAL)
-	DEC A			; sets C iff we go negative
-	JR NC,_down_fast
+	AND A
+	JR NZ,_down_fast
 	;	current->status = wstate;
 	CALL get_current
 	PUSH HL
@@ -80,7 +80,7 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	;} else { /* no contention - it's ours */
 _down_fast:
 	;	sem->value--;
-	LD (IX+SEMA_VAL),A
+	DEC (IX+SEMA_VAL)
 	;	spin_unlock(sem->lock);
 	SPIN_UNLOCK_AT SEMA_LOCK
 	;}
