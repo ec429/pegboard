@@ -107,14 +107,13 @@ free_page:
 	CALL spin_lock
 	LD B,0
 	LD C,A
-	PUSH IX
-	ADD IX,BC
-	LD A,(IX+0)
+	LD HL,mem_map-RESERVED_PPAGES
+	ADD HL,BC
+	LD A,(HL)
 	SUB D
 	LD E,EFAULT
 	JR NZ,fp_fail
-	LD (IX+0),A		; the SUB will have left A=0
-	POP IX
+	LD (HL),A		; the SUB will have left A=0
 	INC (IX+1)		; mem_free
 	CALL spin_unlock
 .if DEBUG
@@ -139,7 +138,6 @@ free_page:
 	LD E,0
 	RET
 fp_fail:
-	POP IX
 	CALL spin_unlock
 	RET
 
