@@ -212,6 +212,8 @@ int main(void)//int argc, char * argv[])
 					else if(T!=((tty_T+1)%FRAME_LEN))
 					{
 						putchar(cbus[ci].data);
+						if(cbus[ci].data==0x0a)
+							fflush(stdout);
 						tty_T=T;
 					}
 				}
