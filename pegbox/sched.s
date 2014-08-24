@@ -7,6 +7,10 @@ PROC_SLOTS equ	8
 
 .text
 
+.globl get_current	; returns (in HL) struct process for running pid
+get_current:
+	LD A,(IY+1)
+	; fall into get_process
 .globl get_process	; returns (in HL) struct process for pid A
 get_process:
 	BUILD_BUG_ON(PROCESS_SIZE != 8)
@@ -133,9 +137,8 @@ sched_put:			; must be called with interrupts disabled
 	LD (IY+1),A		; no pid
 	RET
 
-.globl sched_yield	; voluntarily give up rest of timeslice
-sched_yield:
-	LD A,(IY+1)		; pid
+.globl sched_sleep	; saves stack, chooses a new runnable process and enters it.  Caller should have already placed current process on a waitq
+sched_sleep:
 	PUSH AF
 	PUSH BC
 	PUSH DE
@@ -143,7 +146,36 @@ sched_yield:
 	PUSH IX
 	DI
 	SPSWAP
-	CALL get_process
+.if DEBUG
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,sched_sleep_1
+	CALL kputs_unlocked
+	LD A,(IY+1)		; pid
+	CALL kprint_hex_unlocked
+	LD HL,sched_sleep_2
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	LD IX,kprint_lock
+	CALL spin_unlock
+.endif
+	CALL sched_choose
+	CALL NC,sched_enter
+	RET
+
+.globl sched_yield	; voluntarily give up rest of timeslice
+sched_yield:
+	PUSH AF
+	PUSH BC
+	PUSH DE
+	PUSH HL
+	PUSH IX
+	DI
+	SPSWAP
+	CALL get_current
 	PUSH HL
 .if DEBUG
 	LD IX,kprint_lock
@@ -444,7 +476,7 @@ _exec_forked:
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
-.globl runq_lock, nextpid_lock
+.globl runq_lock, runq, nextpid_lock
 runq_lock: .byte 0xfe
 nextpid_lock: .byte 0xfe ; also guards pid_map
 nextpid: .byte 2
@@ -453,10 +485,11 @@ got_proc_1: .asciz "Created process "
 exec_init_1: .asciz "CPU #"
 exec_init_2: .asciz " started init, pid="
 sched_waiting: .asciz "No process runnable on CPU "
-sched_chose_1: sched_exit_1: sched_yield_1: .asciz "pid "
+sched_chose_1: sched_exit_1: sched_yield_1: sched_sleep_1: .asciz "pid "
 sched_chose_2: .asciz " scheduled on CPU "
 sched_exit_2: .asciz " preempted on CPU "
 sched_yield_2: .asciz " yield     on CPU "
+sched_sleep_2: .asciz " slept     on CPU "
 .endif
 fork: .asciz "fork"
 

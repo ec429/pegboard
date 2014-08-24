@@ -65,18 +65,39 @@ __list_del:			; delete the entry between BC and DE
 list_del:			; delete entry HL from its list
 	PUSH HL
 	POP IX
-	LD E,(IX+0)		; entry->prev
+	LD E,(IX+0)		; entry->next
 	LD D,(IX+1)
-	LD C,(IX+2)		; entry->next
+	LD C,(IX+2)		; entry->prev
 	LD B,(IX+3)
 	LD (IX+0),0		; entry->next = NULL
 	LD (IX+2),0		; entry->prev = NULL
 	JR __list_del
 
+.globl list_pop		; delete first entry from list IX, returning it in HL
+list_pop:
+	LD L,(IX+0)		; head->next
+	LD H,(IX+1)
+	PUSH IX
+	POP BC			; head
+	PUSH HL
+	PUSH HL
+	POP IX			; next
+	LD E,(IX+0)		; next->next
+	LD D,(IX+1)
+	CALL __list_del
+	POP HL			; next
+	RET
+
 .globl list_empty
 list_empty:			; set Z flag if list at HL is empty
 	PUSH HL
 	POP IX
+	JR __list_empty
+.globl list_empty_ix; set Z flag if list at IX is empty
+list_empty_ix:
+	PUSH IX
+	POP HL
+__list_empty:
 	LD A,L			; test head->next == head
 	CP (IX+0)		; low byte
 	RET NZ

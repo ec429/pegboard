@@ -19,20 +19,20 @@ I did wonder if we needed to save the registers in struct process as well, but i
 pid 0 represents "no process".
 Any process in TASK_[UN]INTERRUPTIBLE should be tied to some event that it's waiting for.  In some cases this will be a struct list_head waitq associated with whatever can trigger that event.  (However, we don't yet have anything sleepable-on except for the fork() case above, which only one process - the new child - can be waiting for.)
 
-struct semaphore { struct list_head waitq; byte held; spinlock_t lock; };
+struct semaphore { struct list_head waitq; byte value; spinlock_t lock; };
 #define down(sem) _down(sem, TASK_UNINTERRUPTIBLE)
 #define down_interruptible(sem) _down(sem, TASK_INTERRUPTIBLE)
 void _down(struct semaphore *sem, enum status_t wstate)
 {
 	spin_lock(sem->lock);
-	if (sem->held) { /* contention case - put us on the waitq */
+	if (!sem->value) { /* contention case - put us on the waitq */
 		current->status = wstate;
-		list_add_tail(&sem->waitq, &current->runq);
+		list_add_tail(&current->runq, &sem->waitq);
 		spin_unlock(sem->lock);
 		sched_sleep(); /* like sched_yield but doesn't sched_put, just saves stack and sched_chooses&enters */
 		/* We've returned from sched_sleep(), so we must hold the sem now */
 	} else { /* no contention - it's ours */
-		sem->held = 1;
+		sem->value--;
 		spin_unlock(sem->lock);
 	}
 }
@@ -40,16 +40,19 @@ void up(struct semaphore *sem)
 {
 	struct process *next;
 	spin_lock(sem->lock);
-	BUG_ON(!sem->held);
 	if (list_empty(sem->waitq)) {
-		sem->held = 0;
+		sem->value++;
+		BUG_ON(!sem->value);
+		spin_unlock(sem->lock);
 	} else { /* wake up first waiter */
 		next = list_pop(sem->waitq);
+		spin_unlock(sem->lock);
 		next->status = TASK_RUNNABLE;
-		list_add(runq, &next->runq); /* we add it to the head of the runq because it's been waiting.  Untested heuristic */
+		spin_lock(runq_lock);
+		list_add(&next->runq, runq); /* we add it to the head of the runq because it's been waiting.  Untested heuristic */
+		spin_unlock(runq_lock);
 		wake_one_cpu(); /* not implemented yet, requires IPIs */
 	}
-	spin_unlock(sem->lock);
 }
 
 ***PROBLEM: IM 2 is nonviable because user code could change the I register and redirect interrupts.  POSSIBLE SOLUTION: the MMU could recognise the LD I,A opcode (I believe it's the only way to set I) and block it (turn it into a NOP or TRAP) if the PC isn't in a ppage with PROT_KERNEL***

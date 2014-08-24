@@ -4,8 +4,14 @@ _SCHED_INC equ 1
 .include "list.inc"
 .include "mem.inc"
 
-; struct process { struct list_head runq; byte pid; enum status_t status; byte basepage; byte ppid;};
 PROCESS_SIZE equ	8
+; struct process {
+PROC_RUNQ equ 0;	struct list_head runq;
+PROC_PID  equ 4;	byte pid;
+PROC_STAT equ 5;	enum status_t status;
+PROC_BASE equ 6;	byte basepage;
+PROC_PPID equ 7;	byte ppid;
+;}
 
 ; enum status_t
 TASK_RUNNING equ 0
