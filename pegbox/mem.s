@@ -58,7 +58,7 @@ get_page:
 	LD E,ENOMEM
 	JR Z,gp_fail
 	DEC (IX+1)
-	LD D,0
+	LD D,RESERVED_PPAGES-1
 	LD IX,mem_map-1
 gp_next_page:
 	INC IX
@@ -162,4 +162,4 @@ mem_lock: .byte 0xfe
 mem_free: .byte 0	; mustn't be in .bss as we depend on it being mem_lock+1
 
 .bss
-mem_map: .skip 256-KERNEL_PPAGES
+mem_map: .skip 256-RESERVED_PPAGES
