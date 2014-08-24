@@ -47,6 +47,19 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	;	spin_unlock(sem->lock);
 	POP IX
 	SPIN_UNLOCK_AT SEMA_LOCK
+.if DEBUG
+	PUSH IX
+	LD IX,kprint_lock
+	CALL spin_lock
+	LD HL,contention_in_down
+	CALL kputs_unlocked
+	LD A,(IY+0)		; cpuid
+	CALL kprint_hex_unlocked
+	LD A,0x0a
+	CALL kputc_unlocked
+	CALL spin_unlock
+	POP IX
+.endif
 	;	sched_sleep();
 	CALL sched_sleep
 	;	/* We've returned from sched_sleep(), so we must hold the sem now */
@@ -154,6 +167,7 @@ _up_wake:
 .data:
 .if DEBUG
 down_after_contention: .asciz "Down after contention on CPU "
+contention_in_down: .asciz "Contention in down() on CPU "
 down_without_contention: .asciz "Down without contention on CPU "
 up_no_waiter: .asciz "Up (no waiter) on CPU "
 up_woke_waiter: .asciz "Up (woke waiter) on CPU "
