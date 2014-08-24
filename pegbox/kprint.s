@@ -1,16 +1,18 @@
+IO_TERMINAL	equ 0x10
+
 .text
 
 .globl kputc		; write single character (in A) to terminal
 kputc:
 	LD IX,kprint_lock
 	CALL spin_lock
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	CALL spin_unlock
 	RET
 
 .globl kputc_unlocked ; as kputc but must already hold the kprint_lock
 kputc_unlocked:
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	RET
 
 kputs_prepare:
@@ -24,7 +26,7 @@ kputs_prepare:
 	NEG
 	LD B,A
 	DEC B			; don't write the NUL
-	LD C,0x10
+	LD C,IO_TERMINAL
 	RET
 
 .globl kputs		; write string (at HL) to terminal; max length 256
@@ -67,20 +69,20 @@ kprint_hex:
 	CALL kprint_hex_prepare
 	LD IX,kprint_lock
 	CALL spin_lock
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	LD A,D
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	LD A,0x0a
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	CALL spin_unlock
 	RET
 
 .globl kprint_hex_unlocked ; as kprint_hex but must already hold the kprint_lock; and no \n
 kprint_hex_unlocked:
 	CALL kprint_hex_prepare
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	LD A,D
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	RET
 
 .globl kprint_half_hex; write low nybble of A as hex to terminal (no 0x prefix), plus trailing \n
@@ -89,9 +91,9 @@ kprint_half_hex:
 	LD A,D
 	LD IX,kprint_lock
 	CALL spin_lock
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	LD A,0x0a
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	CALL spin_unlock
 	RET
 
@@ -99,7 +101,7 @@ kprint_half_hex:
 kprint_half_hex_unlocked:
 	CALL kprint_hex_prepare
 	LD A,D
-	OUT (0x10),A
+	OUT (IO_TERMINAL),A
 	RET
 
 .data
