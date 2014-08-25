@@ -19,7 +19,7 @@
 #include "z80.h"
 
 /* maxima for -c and -p */
-#define MAX_CPUS	32
+#define MAX_CPUS	128
 #define MAX_PAGES	256
 
 /* default for -c and -p */
@@ -109,7 +109,7 @@ int main(int argc, char * argv[])
 		bus_reset(&rbus[page]);
 	}
 	mmu.lock=-1;
-	for(int8_t ci=0;ci<MAX_CPUS;ci++)
+	for(int ci=0;ci<MAX_CPUS;ci++)
 	{
 		irq[ci]=0;
 		irqprime[ci]=true;
@@ -175,7 +175,7 @@ int main(int argc, char * argv[])
 			if(mmu.using[page]!=mmu.lock)
 				mmu.using[page]=-1;
 		}
-		for(int8_t ci=0;ci<(int)nr_cpus;ci++)
+		for(int ci=0;ci<(int)nr_cpus;ci++)
 		{
 			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
 			if(T==(((int32_t)ci)<<10))
@@ -387,14 +387,14 @@ int main(int argc, char * argv[])
 		}
 		/* Check for hw deadlock (shouldn't happen) */
 		can_progress=false;
-		for(int8_t ci=0;ci<(int)nr_cpus;ci++)
+		for(int ci=0;ci<(int)nr_cpus;ci++)
 			if(!cbus[ci].waitline)
 				can_progress=true;
 		if(!can_progress)
 		{
 			fprintf(stderr, "Deadlock!\n");
 			fprintf(stderr, "mmu.lock=%02x\n", mmu.lock);
-			for(int8_t ci=0;ci<(int)nr_cpus;ci++)
+			for(int ci=0;ci<(int)nr_cpus;ci++)
 				if(cbus[ci].mreq&&cbus[ci].tris)
 				{
 					uint8_t pi=cbus[ci].addr>>12;
@@ -415,13 +415,13 @@ int main(int argc, char * argv[])
 		}
 		/* Check for hw stopped (everyone DI HALT, eg. after panic()) */
 		work_to_do=false;
-		for(int8_t ci=0;ci<(int)nr_cpus;ci++)
+		for(int ci=0;ci<(int)nr_cpus;ci++)
 			if(cpu[ci].IFF[0]||!cpu[ci].halt||cpu[ci].intacc)
 				work_to_do=true;
 		if(!work_to_do)
 		{
 			fprintf(stderr, "Powerdown!\n");
-			for(int8_t ci=0;ci<(int)nr_cpus;ci++)
+			for(int ci=0;ci<(int)nr_cpus;ci++)
 			{
 				uint16_t pc=cpu[ci].regs[0]|(cpu[ci].regs[1]<<8);
 				fprintf(stderr, "%02x: PC = %04x, IFF %d %d\n", ci, pc, cpu[ci].IFF[0], cpu[ci].IFF[1]);
