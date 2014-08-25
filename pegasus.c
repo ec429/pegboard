@@ -92,6 +92,7 @@ int main(int argc, char * argv[])
 	// State
 	z80 cpu[MAX_CPUS];
 	uint8_t irq[MAX_CPUS];
+	bool irqprime[MAX_CPUS];
 	bus_t cbus[MAX_CPUS], rbus[MAX_PAGES];
 	ram_page ram[MAX_PAGES];
 	mmu_t mmu;
@@ -111,6 +112,7 @@ int main(int argc, char * argv[])
 	for(int8_t ci=0;ci<MAX_CPUS;ci++)
 	{
 		irq[ci]=0;
+		irqprime[ci]=true;
 		z80_reset(&cpu[ci], &cbus[ci]);
 		bus_reset(&cbus[ci]);
 		for(uint8_t pi=0;pi<16;pi++)
@@ -185,14 +187,22 @@ int main(int argc, char * argv[])
 			{
 				if(cpu[ci].intacc)
 				{
-					cbus[ci].data=irq[ci];
-					//fprintf(stderr, "Acknowledged IRQ %u on %u\n", irq[ci], ci);
-					if(irq[ci]>=IO_PEGBUS&&irq[ci]<IO_PEGBUS+PB_MAX_DEV*2)
+					if(irqprime[ci])
 					{
-						unsigned int slot=(irq[ci]-IO_PEGBUS)/2;
-						pbdevs[slot].irq=false;
+						cbus[ci].data=irq[ci];
+						//fprintf(stderr, "Acknowledged IRQ %u on %u at %u\n", irq[ci], ci, T);
+						if(irq[ci]>=IO_PEGBUS&&irq[ci]<IO_PEGBUS+PB_MAX_DEV*2)
+						{
+							unsigned int slot=(irq[ci]-IO_PEGBUS)/2;
+							pbdevs[slot].irq=false;
+						}
+						irq[ci]=0;
+						irqprime[ci]=false;
 					}
-					irq[ci]=0;
+				}
+				else
+				{
+					irqprime[ci]=true;
 				}
 			}
 			if((errupt=z80_tstep(&cpu[ci], &cbus[ci], errupt))) break;
