@@ -287,10 +287,11 @@ do_fork:
 	EI
 	RET
 _do_fork_fail1:
-	POP IX
 	LD (IX+4),0
 	POP AF			; A=pid
+	PUSH DE			; save errno
 	CALL free_pid
+	POP DE
 	SCF
 	RET
 
