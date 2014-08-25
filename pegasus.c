@@ -18,16 +18,21 @@
 #include "types.h"
 #include "z80.h"
 
+/* maxima for -c and -p */
+#define MAX_CPUS	32
+#define MAX_PAGES	256
+
+/* default for -c and -p */
 #define NR_CPUS		2
 #define NR_PAGES	64
 
 typedef struct
 {
-	uint8_t page[NR_CPUS][16];
-	bool iospace[NR_CPUS][16];
-	int8_t lock, using[NR_PAGES];
+	uint8_t page[MAX_CPUS][16];
+	bool iospace[MAX_CPUS][16];
+	int8_t lock, using[MAX_PAGES];
 	uint8_t irq_owner[128];
-	bool dd[NR_CPUS];
+	bool dd[MAX_CPUS];
 }
 mmu_t;
 
@@ -44,13 +49,51 @@ mmu_t;
 
 #define FRAME_LEN	350000 /* 1/10 of a second at 3.5MHz */
 
-int main(void)//int argc, char * argv[])
+int main(int argc, char * argv[])
 {
+	unsigned int nr_cpus=NR_CPUS, nr_pages=NR_PAGES;
+	for(int arg=1;arg<argc;arg++)
+	{
+		if(argv[arg][0]=='-')
+		{
+			switch(argv[arg][1])
+			{
+				case 'c':
+					if(sscanf(argv[arg]+2, "%u", &nr_cpus)!=1)
+					{
+						fprintf(stderr, "Bad -c value %s\n", argv[arg]+2);
+						return(2);
+					}
+					if(nr_cpus>MAX_CPUS)
+					{
+						fprintf(stderr, "-c value %u too large, max is %u\n", nr_cpus, MAX_CPUS);
+						return(2);
+					}
+				break;
+				case 'p':
+					if(sscanf(argv[arg]+2, "%u", &nr_pages)!=1)
+					{
+						fprintf(stderr, "Bad -p value %s\n", argv[arg]+2);
+						return(2);
+					}
+					if(nr_pages>MAX_PAGES)
+					{
+						fprintf(stderr, "-p value %u too large, max is %u\n", nr_pages, MAX_PAGES);
+						return(2);
+					}
+				break;
+				default:
+					fprintf(stderr, "Unrecognised option %s\n", argv[arg]);
+					return(2);
+				break;
+			}
+		}
+	}
 	// State
-	z80 cpu[NR_CPUS];
-	uint8_t irq[NR_CPUS];
-	bus_t cbus[NR_CPUS], rbus[NR_PAGES];
-	ram_page ram[NR_PAGES];
+	z80 cpu[MAX_CPUS];
+	uint8_t irq[MAX_CPUS];
+	bus_t cbus[MAX_CPUS], rbus[MAX_PAGES];
+	ram_page ram[MAX_PAGES];
 	mmu_t mmu;
 #define IRQ_OWNER(_irq)	mmu.irq_owner[(_irq)>>1]
 #define IRQ(_irq)	interrupt(IRQ_OWNER(_irq), (_irq))
@@ -58,14 +101,14 @@ int main(void)//int argc, char * argv[])
 	if (!irq[(ci)] || (_irq) < irq[(ci)]) \
 		irq[(ci)]=(_irq);\
 	} while(0);
-	for(uint8_t page=0;page<NR_PAGES;page++)
+	for(unsigned int page=0;page<MAX_PAGES;page++)
 	{
 		mmu.using[page]=-1;
 		memset(ram[page], 0, sizeof(ram[page]));
 		bus_reset(&rbus[page]);
 	}
 	mmu.lock=-1;
-	for(uint8_t ci=0;ci<NR_CPUS;ci++)
+	for(int8_t ci=0;ci<MAX_CPUS;ci++)
 	{
 		irq[ci]=0;
 		z80_reset(&cpu[ci], &cbus[ci]);
@@ -87,7 +130,7 @@ int main(void)//int argc, char * argv[])
 		perror("Failed to load kernel: open");
 		return(1);
 	}
-	for(uint8_t page=0;page<NR_PAGES;page++)
+	for(unsigned int page=0;page<nr_pages;page++)
 	{
 		ssize_t bytes=read(prog, ram[page], sizeof(ram[page]));
 		if(bytes>0)
@@ -125,12 +168,12 @@ int main(void)//int argc, char * argv[])
 				}
 			}
 		}
-		for(uint8_t page=0;page<NR_PAGES;page++)
+		for(unsigned int page=0;page<nr_pages;page++)
 		{
 			if(mmu.using[page]!=mmu.lock)
 				mmu.using[page]=-1;
 		}
-		for(uint8_t ci=0;ci<NR_CPUS;ci++)
+		for(int8_t ci=0;ci<(int)nr_cpus;ci++)
 		{
 			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
 			if(T==(((int32_t)ci)<<10))
@@ -258,7 +301,7 @@ int main(void)//int argc, char * argv[])
 				}
 				else
 				{
-					if(page<NR_PAGES)
+					if(page<nr_pages)
 					{
 						if(mmu.using[page]<0 || mmu.using[page]==ci)
 						{
@@ -334,14 +377,14 @@ int main(void)//int argc, char * argv[])
 		}
 		/* Check for hw deadlock (shouldn't happen) */
 		can_progress=false;
-		for(uint8_t ci=0;ci<NR_CPUS;ci++)
+		for(int8_t ci=0;ci<(int)nr_cpus;ci++)
 			if(!cbus[ci].waitline)
 				can_progress=true;
 		if(!can_progress)
 		{
 			fprintf(stderr, "Deadlock!\n");
 			fprintf(stderr, "mmu.lock=%02x\n", mmu.lock);
-			for(uint8_t ci=0;ci<NR_CPUS;ci++)
+			for(int8_t ci=0;ci<(int)nr_cpus;ci++)
 				if(cbus[ci].mreq&&cbus[ci].tris)
 				{
 					uint8_t pi=cbus[ci].addr>>12;
@@ -352,7 +395,7 @@ int main(void)//int argc, char * argv[])
 					}
 					else
 					{
-						if(page<NR_PAGES&&mmu.using[page]<0)
+						if(page<nr_pages&&mmu.using[page]<0)
 							fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, cbus[ci].data);
 						else
 							fprintf(stderr, "%02x: WAIT %02x (for %02x) (addr %04x)\n", ci, page, mmu.using[page], cbus[ci].addr);
@@ -362,13 +405,13 @@ int main(void)//int argc, char * argv[])
 		}
 		/* Check for hw stopped (everyone DI HALT, eg. after panic()) */
 		work_to_do=false;
-		for(uint8_t ci=0;ci<NR_CPUS;ci++)
+		for(int8_t ci=0;ci<(int)nr_cpus;ci++)
 			if(cpu[ci].IFF[0]||!cpu[ci].halt||cpu[ci].intacc)
 				work_to_do=true;
 		if(!work_to_do)
 		{
 			fprintf(stderr, "Powerdown!\n");
-			for(uint8_t ci=0;ci<NR_CPUS;ci++)
+			for(int8_t ci=0;ci<(int)nr_cpus;ci++)
 			{
 				uint16_t pc=cpu[ci].regs[0]|(cpu[ci].regs[1]<<8);
 				fprintf(stderr, "%02x: PC = %04x, IFF %d %d\n", ci, pc, cpu[ci].IFF[0], cpu[ci].IFF[1]);
