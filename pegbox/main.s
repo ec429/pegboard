@@ -117,8 +117,6 @@ ivtbl:
 .data
 STR_booting: .ascii "Booting PEGBOx kernel 0.0.1-pre"
 .byte 0x0a,0
-STR_finished: .ascii "Failed to sched_enter!"
-.byte 0x0a,0
 start_msg_1: .asciz "CPU #"
 start_msg_2: .ascii " online"
 .byte 0x0a,0
