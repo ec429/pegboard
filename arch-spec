@@ -8,9 +8,9 @@ spin_lock:			; acquire lock at IX
 	jr c, spin_lock
 	ret
 
-spin_unlock:
+spin_unlock:		; release lock at IX
 	ld a,0xfe
-	ld (IX+0),a		; no need for a locked op
+	lock ld (IX+0),a
 	ret
 
 The locked instruction assembles to DD DD CB 00 2E (unless I've made a mistake...)

@@ -13,6 +13,7 @@ spin_lock:
 .globl spin_unlock	; release lock at IX.  Clobbers: A
 spin_unlock:
 	LD A,0xfe
-	LD (IX+0),A		; no need for a locked op
+	.byte 0xdd		; locked-instruction prefix
+	LD (IX+0),A
 	STI
 	RET

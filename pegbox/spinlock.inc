@@ -23,7 +23,8 @@ _SPINLOCK_INC equ 1
 
 .macro spin_unlock_at disp; release lock at IX+disp.  Clobbers: A
 	ld a,0xfe
-	ld (IX+\disp),a		; no need for a locked op
+	.byte 0xdd		; locked-instruction prefix
+	ld (IX+\disp),a
 	STI
 .endm
 
