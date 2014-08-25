@@ -236,7 +236,7 @@ _do_fork_gotpage:
 	PUSH DE
 	PUSH HL
 	PUSH IX
-	LD (MEM_SAVESP),SP
+	SPSWAP
 					; copy stack page
 	LD A,(IX+6)
 	LD BC,(VPAGE_FORK_STACK<<8)|IO_MMU
@@ -259,6 +259,7 @@ _do_fork_gotpage:
 	LD B,A
 	OUT (C),E		; page oldpage back in
 					; mark task as runnable
+	SPSWAP
 	POP IX
 	POP HL
 	POP DE
