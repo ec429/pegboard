@@ -1,6 +1,6 @@
 SPINLOCKS
 
-We require that the MMU detects a DD DD prefix and pulls down other cpus' /WAIT (or at least those with the page mapped in).  It unlocks when it sees a write complete
+We require that the MMU detects a DD DD prefix and pulls down /WAIT for any other CPUs that try to DD DD.  It unlocks when it sees a write complete
 We use the following locking functions:
 
 spin_lock:			; acquire lock at IX
@@ -23,13 +23,9 @@ spin_lock:
 spin_unlock:
 |OCF4   W   |OD3 W   |OCF4   W   |OCF4   W   |OD3 W   |IO5    W      |MW3    W|OCF4      W   |SR3 W   |SR3 W   |
 
-So let us suppose that A has the spinlock, B is in 'lock sra' and C is waiting to read the second DD of its 'lock sra'.  A will run until it reaches a Wait, then both A and C are stalled.
-B now reaches its UW, releasing the others.  For any reads not touching the spinlock, RAM contention won't come into play, so A and C will each proceed for one T-state.  A will now have completed its read, and C will have the lock.  (If there is a D also trying to acquire the lock, the arbitrator will have to prevent it from advancing.)
-The special case is when A is trying to do its MW to the spinlock.  But at this point, assuming B is out of the way by this point, no-one else is trying to touch the spinlock, so there is still no contention.  Thus A will succeed in releasing the spinlock.  The assumption depends on how the MMU handles things, and the precise timing of the U - it may have to be delayed to the cycle after B's write completes.
-
 MEMORY MANAGEMENT UNIT
 
-A15-A12 are page selectors (so each CPU has 16 virtual pages, and each page is 4kB).  The paging is set up with OUTs (detailed below).  Multiple CPUs may map the same page simultaneously.  If a CPU pulls down /MREQ and either /RD or /WR, it now owns that page, and any other CPU trying to /MREQ the same page will get /WAITed.  As mentioned above, the lock prefix will /WAIT all other CPUs with the page mapped, whether they are trying to R/W that page or not.  (I think it'd still work if it only /WAITed CPUs trying to R/W the same page as the locked instruction; the trouble is you have to track which pages the locked op has touched - when the lock enters it's only seeing the address of the second DD.)
+A15-A12 are page selectors (so each CPU has 16 virtual pages, and each page is 4kB).  The paging is set up with OUTs (detailed below).  Multiple CPUs may map the same page simultaneously.  If a CPU pulls down /MREQ and either /RD or /WR, it now owns that page, and any other CPU trying to /MREQ the same page will get /WAITed.  As mentioned above, the lock prefix will /WAIT if any other CPU is in a locked op.
 However, this serialisation and locking is NOT applied to peripheral device memory (MMIO); if two CPUs try to access the same MMIO page, the behaviour is undefined.
 
 Reading from a nonexistent page produces 0xff (and writing of course has no effect).

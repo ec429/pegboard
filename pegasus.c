@@ -125,6 +125,11 @@ int main(void)//int argc, char * argv[])
 				}
 			}
 		}
+		for(uint8_t page=0;page<NR_PAGES;page++)
+		{
+			if(mmu.using[page]!=mmu.lock)
+				mmu.using[page]=-1;
+		}
 		for(uint8_t ci=0;ci<NR_CPUS;ci++)
 		{
 			/* Timer interrupt, staggered across CPUs.  Must be highest priority, as cannot be dropped */
@@ -219,14 +224,6 @@ int main(void)//int argc, char * argv[])
 				}
 			}
 			/* MMU */
-			for(uint8_t pi=0;pi<16;pi++)
-			{
-				if(mmu.iospace[ci][pi])
-					continue;
-				uint8_t page=mmu.page[ci][pi];
-				if(page<NR_PAGES&&mmu.using[page]==ci)
-					mmu.using[page]=-1;
-			}
 			if(cbus[ci].mreq&&cbus[ci].tris)
 			{
 				uint8_t pi=cbus[ci].addr>>12;
@@ -261,13 +258,9 @@ int main(void)//int argc, char * argv[])
 				}
 				else
 				{
-					if(mmu.lock>=0 && mmu.lock!=ci)
+					if(page<NR_PAGES)
 					{
-						cbus[ci].waitline=true;
-					}
-					else if(page<NR_PAGES)
-					{
-						if(mmu.using[page]<0)
+						if(mmu.using[page]<0 || mmu.using[page]==ci)
 						{
 							mmu.using[page]=ci;
 							/* MMU */
@@ -296,7 +289,14 @@ int main(void)//int argc, char * argv[])
 								{
 									if(mmu.dd[ci])
 									{
-										mmu.lock=ci;
+										if(mmu.lock>=0 && mmu.lock!=ci)
+										{
+											goto mmu_wait;
+										}
+										else
+										{
+											mmu.lock=ci;
+										}
 									}
 									else if(cbus[ci].m1)
 										mmu.dd[ci]=true;
@@ -321,6 +321,7 @@ int main(void)//int argc, char * argv[])
 						}
 						else
 						{
+							mmu_wait:
 							cbus[ci].waitline=true;
 						}
 					}
@@ -339,12 +340,13 @@ int main(void)//int argc, char * argv[])
 		if(!can_progress)
 		{
 			fprintf(stderr, "Deadlock!\n");
+			fprintf(stderr, "mmu.lock=%02x\n", mmu.lock);
 			for(uint8_t ci=0;ci<NR_CPUS;ci++)
 				if(cbus[ci].mreq&&cbus[ci].tris)
 				{
 					uint8_t pi=cbus[ci].addr>>12;
 					uint8_t page=mmu.page[ci][pi];
-					if(mmu.iospace[page]) // should be impossible as MMIO is not locked or serialised
+					if(mmu.iospace[ci][pi]) // should be impossible as MMIO is not locked or serialised
 					{
 						fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"IN":"OUT", cbus[ci].addr, cbus[ci].data);
 					}
@@ -353,7 +355,7 @@ int main(void)//int argc, char * argv[])
 						if(page<NR_PAGES&&mmu.using[page]<0)
 							fprintf(stderr, "%02x: %s %04x %02x\n", ci, cbus[ci].tris==TRIS_IN?"RD":"WR", cbus[ci].addr, cbus[ci].data);
 						else
-							fprintf(stderr, "%02x: WAIT %02x (%04x)\n", ci, page, cbus[ci].addr);
+							fprintf(stderr, "%02x: WAIT %02x (for %02x) (addr %04x)\n", ci, page, mmu.using[page], cbus[ci].addr);
 					}
 				}
 			break;
