@@ -75,10 +75,7 @@ _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a 
 	JR Z,_int_timer_panicked
 	CALL sched_choose
 	JR C,_int_timer_noproc
-	CALL sched_enter
-	LD HL,STR_finished
-	CALL kputs
-	CALL panic
+	JP sched_enter
 _int_timer_noproc:	; no process found, so just return (to _main_idle)
 	EI
 	RETI
