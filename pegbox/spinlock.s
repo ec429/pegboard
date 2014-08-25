@@ -1,14 +1,18 @@
+.include "spinlock.inc"
+
 .text
 
 .globl spin_lock	; acquire lock at IX
 spin_lock:
+	CLI
 	.byte 0xdd		; locked-instruction prefix
-	sra (IX+0)		; contains the second DD
-	jr c,spin_lock
-	ret
+	SRA (IX+0)		; contains the second DD
+	JR C,.-5
+	RET
 
 .globl spin_unlock	; release lock at IX.  Clobbers: A
 spin_unlock:
-	ld a,0xfe
-	ld (IX+0),a		; no need for a locked op
-	ret
+	LD A,0xfe
+	LD (IX+0),A		; no need for a locked op
+	STI
+	RET

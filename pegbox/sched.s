@@ -3,6 +3,7 @@
 .include "errno.inc"
 .include "debug.inc"
 .include "semaphore.inc"
+.include "spinlock.inc"
 
 PROC_SLOTS equ	8
 
@@ -217,10 +218,18 @@ do_fork:
 	CALL get_page	; obtain stack page
 	POP IX
 	AND A
-	JR Z,_do_fork_fail1
+	JR NZ,_do_fork_gotpage
+	LD (IX+4),0
+	POP AF			; A=pid
+	PUSH DE			; save errno
+	CALL free_pid
+	POP DE
+	SCF
+	RET
+_do_fork_gotpage:
 	LD (IX+6),A		; assign stack page
 	POP BC			; retrieve child pid
-	DI				; put process image into a schedulable state before copying
+	CLI				; put process image into a schedulable state before copying
 	XOR A			; ensure child returns 0 from fork()
 	PUSH AF
 	PUSH BC
@@ -267,7 +276,7 @@ do_fork:
 	CALL list_add_tail
 	LD IX,runq_lock
 	CALL spin_unlock
-	EI
+	STI
 	POP AF
 .if DEBUG
 	PUSH AF
@@ -284,15 +293,6 @@ do_fork:
 	POP AF
 .endif
 	LD E,0
-	EI
-	RET
-_do_fork_fail1:
-	LD (IX+4),0
-	POP AF			; A=pid
-	PUSH DE			; save errno
-	CALL free_pid
-	POP DE
-	SCF
 	RET
 
 choose_pid:			; returns chosen pid in A, or 0 with errno in E

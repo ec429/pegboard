@@ -1,6 +1,7 @@
 .include "sched.inc"
 .include "debug.inc"
 .include "mem.inc"
+.include "spinlock.inc"
 .text
 
 .globl main			; per-CPU OS entry point.  Does not return
@@ -27,7 +28,7 @@ _main_page_loop:
 	LD A,(IY+0)
 	AND A
 	CALL Z,cpu0_setup
-	EI
+	STI
 _main_idle:
 	HALT
 	JR _main_idle
@@ -51,7 +52,7 @@ INT_timer:			; handler for timer interrupt
 	EX AF,AF'
 	EXX
 	PERCPU
-	LD IY,0xfffe
+	LD IY,-PERCPU_SIZE
 	EX DE,HL
 	ADD IY,DE		; IY points to the percpu_struct
 	LD A,(IY+1)		; current PID
@@ -91,7 +92,7 @@ unhandled_irq:
 	EXX
 	PUSH IX
 	PERCPU
-	LD IY,0xfffe
+	LD IY,-PERCPU_SIZE
 	EX DE,HL
 	ADD IY,DE		; IY points to the percpu_struct
 	LD IX,kprint_lock

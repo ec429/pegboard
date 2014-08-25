@@ -136,7 +136,7 @@ INT_pegbus:
 .if DEBUG
 	PUSH AF
 	PERCPU
-	LD IY,0xfffe
+	LD IY,-PERCPU_SIZE
 	EX DE,HL
 	ADD IY,DE		; IY points to the percpu_struct
 	LD IX,kprint_lock

@@ -19,6 +19,15 @@ TASK_RUNNABLE equ 1
 TASK_INTERRUPTIBLE equ 2
 TASK_UNINTERRUPTIBLE equ 3
 
+; struct percpu_struct {
+;   u8 cpuid;
+;	u8 current_pid;
+;	u8 cli_depth;
+;	u8 unused;
+; }
+
+PERCPU_SIZE equ 4
+
 .macro percpu		; stores address of top of percpu data area in HL (and cpuid in E)
 	LD BC,0x2004
 	IN E,(C)		; read cpuid from MMU

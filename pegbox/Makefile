@@ -12,12 +12,13 @@ kernel.bin: $(TARGET_OBJS) kernel.ld
 	$(TARGET_LD) -o $@ $(TARGET_LDFLAGS) $(TARGET_OBJS) -Map kernel.sym
 
 init.zo: sched.inc list.inc mem.inc
-main.zo: sched.inc list.inc mem.inc
-sched.zo: sched.inc list.inc mem.inc
+main.zo: sched.inc list.inc mem.inc spinlock.inc
+sched.zo: sched.inc list.inc mem.inc spinlock.inc
 mem.zo: mem.inc
 panic.zo: mem.inc
 pegbus.zo: pegbus.inc sched.inc list.inc mem.inc
 semaphore.zo: semaphore.inc spinlock.inc sched.inc
+spinlock.zo: spinlock.inc
 
 %.zo: %.s errno.inc debug.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@
