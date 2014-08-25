@@ -26,6 +26,7 @@ down_interruptible:
 	LD D,TASK_INTERRUPTIBLE
 	; fall into _down
 _down:				; (struct semaphore *)IX, enum status_t D
+	CLI
 	;spin_lock(sem->lock);
 	SPIN_LOCK_AT SEMA_LOCK
 	;if (!sem->value) { /* contention case - put us on the waitq */
@@ -61,6 +62,7 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	POP IX
 .endif
 	;	sched_sleep();
+	STIDI
 	CALL sched_sleep
 	;	/* We've returned from sched_sleep(), so we must hold the sem now */
 .if DEBUG
@@ -97,6 +99,7 @@ _down_fast:
 	CALL spin_unlock
 	POP IX
 .endif
+	STI
 	RET
 
 .globl up			; (struct semaphore *)IX

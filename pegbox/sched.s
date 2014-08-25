@@ -139,14 +139,13 @@ sched_put:			; must be called with interrupts disabled
 	LD (IY+1),A		; no pid
 	RET
 
-.globl sched_sleep	; saves stack, chooses a new runnable process and enters it.  Caller should have already placed current process on a waitq
+.globl sched_sleep	; saves stack, chooses a new runnable process and enters it.  Caller should have already disabled interrupts and placed current process on a waitq
 sched_sleep:
 	PUSH AF
 	PUSH BC
 	PUSH DE
 	PUSH HL
 	PUSH IX
-	DI
 	SPSWAP
 .if DEBUG
 	LD IX,kprint_lock
