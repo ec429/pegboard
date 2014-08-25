@@ -145,7 +145,7 @@ int main(int argc, char * argv[])
 	int errupt=0;
 	int T=0;
 #ifdef LOCK_DEBUG
-	bool lockmap[0x1000];
+	bool lockmap[MAX_PAGES][0x1000];
 #endif
 	bool can_progress; // _someone_ isn't WAITed
 	bool work_to_do; // _someone_ isn't DI HALT
@@ -351,13 +351,13 @@ int main(int argc, char * argv[])
 							{
 								mmu.lock=-1;
 #ifdef LOCK_DEBUG
-								if(cbus[ci].addr<0x1000 && page==0 && !lockmap[cbus[ci].addr])
+								if(!lockmap[page][rbus[page].addr])
 									fprintf(stderr, "%02x: ACQ %04x [%02x:%04x]\n", ci, cbus[ci].addr, page, rbus[page].addr);
-								lockmap[cbus[ci].addr]=true;
+								lockmap[page][rbus[page].addr]=true;
 #endif
 							}
 #ifdef LOCK_DEBUG
-							if(cbus[ci].addr<0x1000 && page==0 && lockmap[cbus[ci].addr] && cbus[ci].data==0xfe)
+							if(lockmap[page][rbus[page].addr] && cbus[ci].data==0xfe)
 								fprintf(stderr, "%02x: %s %04x [%02x:%04x]\n", ci, cbus[ci].tris==TRIS_IN?"ACQ":"REL", cbus[ci].addr, page, rbus[page].addr);
 #endif
 							cbus[ci].waitline=false;
