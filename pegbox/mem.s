@@ -9,14 +9,14 @@ setup_mem_map:
 	LD IX,mem_lock
 	CALL spin_lock
 	LD (IX+1),0
-	LD BC,0xfe-KERNEL_PPAGES
+	LD BC,256-RESERVED_PPAGES
 	LD DE,mem_map+1
 	LD HL,mem_map
 	LD (HL),0
 	LDIR
 	LD C,IO_MMU
 	LD B,VPAGE_STACK
-	LD D,KERNEL_PPAGES
+	LD D,RESERVED_PPAGES
 	LD HL,MEM_SAVESP
 smm_next_page:
 	OUT (C),D		; set pi 1 to page D
@@ -94,6 +94,12 @@ gp_next_page:
 gp_fail:
 	POP IX
 	CALL spin_unlock
+.if DEBUG
+	PUSH DE
+	LD HL,get_page_fail
+	CALL perror
+	POP DE
+.endif
 	XOR A
 	RET
 
@@ -153,6 +159,7 @@ got_page_1: .asciz "Process "
 freed_page_1 equ got_page_1
 got_page_2: .asciz " got page "
 freed_page_2: .asciz " freed page "
+get_page_fail: .asciz "get_page failed"
 .endif
 ; allocation state
 .globl mem_lock
