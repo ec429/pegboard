@@ -62,7 +62,6 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	POP IX
 .endif
 	;	sched_sleep();
-	STIDI
 	CALL sched_sleep
 	;	/* We've returned from sched_sleep(), so we must hold the sem now */
 .if DEBUG

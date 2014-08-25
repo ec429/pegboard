@@ -99,7 +99,7 @@ sched_enter:
 	POP DE
 	POP BC
 	POP AF
-	EI				; process must have had interrupts enabled before, because it got pre-empted (or it'd still be running)
+	STI				; process must have had interrupts enabled before, because it got pre-empted (or it'd still be running)
 	RET
 
 .globl sched_exit	; returns (in HL) struct process for current pid
@@ -139,7 +139,7 @@ sched_put:			; must be called with interrupts disabled
 	LD (IY+1),A		; no pid
 	RET
 
-.globl sched_sleep	; saves stack, chooses a new runnable process and enters it.  Caller should have already disabled interrupts and placed current process on a waitq
+.globl sched_sleep	; saves stack, chooses a new runnable process and enters it.  Caller should have already CLI'd and placed current process on a waitq
 sched_sleep:
 	PUSH AF
 	PUSH BC
@@ -163,8 +163,11 @@ sched_sleep:
 	LD IX,kprint_lock
 	CALL spin_unlock
 .endif
+	XOR A
+	LD (IY+1),A		; no pid
 	CALL sched_choose
-	CALL NC,sched_enter
+	JP NC,sched_enter
+	STI
 	RET
 
 .globl sched_yield	; voluntarily give up rest of timeslice
@@ -174,7 +177,7 @@ sched_yield:
 	PUSH DE
 	PUSH HL
 	PUSH IX
-	DI
+	CLI
 	SPSWAP
 	CALL get_current
 	PUSH HL

@@ -14,12 +14,6 @@ _SPINLOCK_INC equ 1
 	EI
 .endm
 
-.macro stidi		; counting EI, except don't EI if the count falls to 0
-	DEC (IY+2)
-	CALL M,panic
-	JR NZ,.+3
-.endm
-
 .macro spin_lock_at disp; acquire lock at IX+disp
 	CLI
 	.byte 0xdd		; locked-instruction prefix

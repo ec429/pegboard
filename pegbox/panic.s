@@ -1,9 +1,11 @@
 .include "mem.inc"
+.include "spinlock.inc"
 
 .text
 
 .globl panic
 panic:
+	CLI
 	LD HL,can_start_other_cpus
 	LD (HL),0
 	LD IX,kprint_lock
@@ -51,7 +53,6 @@ _panic_stack_loop:
 	LD HL,panic_msg_5
 	CALL kputs_unlocked
 	CALL spin_unlock
-	DI
 	HALT
 
 .data
