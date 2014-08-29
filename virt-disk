@@ -1,0 +1,31 @@
+Virtual disk: device model
+This is a pegbus device, with device_id = 0xfed0.  (Suggested convention: 0xfeXX to represent virtual, emulated devices.)
+Data are stored in up to 65536 * 4kB pages, for a maximum size of 256MB.  This should be plenty, as it's 4096 mobies - the equivalent for a 32-bit machine would be 16TB.  Looking at it another way, the Z80 is about a thousandth the speed of a modern CPU, and so can process 256MB of data in the time a modern machine might process 256GB.  (The modern machine also has caches, out-of-order execution, superscalar instructions, and other advantages.)
+Commands are issued by writing to a request buffer in device memory.  Once the command has completed, this buffer will be overwritten with the response, and an interrupt generated.
+This request buffer is in ppage 0; pages 1 through f are the "slots" in which data pages can be placed.
+
+struct request {
+	uint8_t cmd; // high bit clear
+	uint8_t ph; // high byte of page on disk
+	uint8_t pl; // low byte of page on disk
+	uint8_t sl; // slot number, 1 <= sl <= 0xf
+};
+struct response {
+	uint8_t cmd; // high bit set
+	uint8_t ph; // high byte of page on disk
+	uint8_t pl; // low byte of page on disk
+	uint8_t sl; // slot number, 1 <= sl <= 0xf
+};
+
+CMD	Description
+ 01	Read page {PH,PL} into slot SL
+ 11	Write slot SL into page {PH,PL}
+ 02	Read pages {PH,PL} and {PH,PL+1} into slots SL and SL+1.  (If PL is 0xff or SL is 0xf, behaviour is undefined)
+ 12	Write slots SL and SL+1 into pages {PH,PL} and {PH,PL+1}.  (If PL is 0xff or SL is 0xf, behaviour is undefined)
+ etc...
+ 0f	Read pages {PH,PL} through {PH,PL+e} into slots SL through SL+e.  (If PL > 0xf1 or SL > 1, behaviour is undefined)
+ 81	Page {PH,PL} available for read in slot SL (i.e. completion of an 01)
+ 91	Slot SL has been written into page {PH,PL} (i.e. completion of an 11)
+ etc...
+ 20	Get disk size
+ a0 Disk size is (PH+1) * (PL+1) and max slot is SL.  (PL should always be 0xff)
