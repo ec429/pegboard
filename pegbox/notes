@@ -68,6 +68,5 @@ Next steps:
 	Implement a kmalloc/kfree.
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.  (Probably just an OUT whose high address byte is CPUid, and the data byte could be a mailbox number of some sort.)
-	Write a panic() function, for when things go wrong.
 	Design a system call entry mechanism that allows for protection (eg. prevent mapping in kernel pages except by sysenter.  Maybe use RST 38 as SYSENTER.  This, and interrupts, need to automatically page in 0 at 0).
 	Pick an executable format and write a program loader (perhaps also a dynamic linker?)
