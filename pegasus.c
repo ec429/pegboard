@@ -17,6 +17,7 @@
 #include "pegbus.h"
 #include "types.h"
 #include "z80.h"
+#include "virt-disk.h"
 
 /* maxima for -c and -p */
 #define MAX_CPUS	128
@@ -52,6 +53,7 @@ mmu_t;
 int main(int argc, char * argv[])
 {
 	unsigned int nr_cpus=NR_CPUS, nr_pages=NR_PAGES;
+	const char *disk_file=NULL;
 	for(int arg=1;arg<argc;arg++)
 	{
 		if(argv[arg][0]=='-')
@@ -81,6 +83,9 @@ int main(int argc, char * argv[])
 						fprintf(stderr, "-p value %u too large, max is %u\n", nr_pages, MAX_PAGES);
 						return(2);
 					}
+				break;
+				case 'd':
+					disk_file=argv[arg]+2;
 				break;
 				default:
 					fprintf(stderr, "Unrecognised option %s\n", argv[arg]);
@@ -122,9 +127,26 @@ int main(int argc, char * argv[])
 		}
 	}
 	// Attach pegbus devices
-	int pb_test_dev=pegbus_attach_device(0xff0d, 5, pegbus_test_read_trap, pegbus_test_write_trap);
+	int pb_test_dev=pegbus_attach_device(0xff0d, 5, pegbus_test_read_trap, pegbus_test_write_trap, NULL, NULL);
 	if(pb_test_dev<0)
 		fprintf(stderr, "Failed to attach test device to pegbus: %s\n", strerror(pb_test_dev));
+	int diskfd=-1, pb_disk_dev=-1;
+	if(disk_file)
+	{
+		diskfd=open(disk_file, O_RDWR);
+		if(diskfd<0)
+		{
+			perror("Failed to mount virt-disk: open");
+			return(1);
+		}
+		pb_disk_dev=virt_disk_attach(diskfd);
+		if(pb_disk_dev<0)
+		{
+			fprintf(stderr, "Failed to attach virt-disk device to pegbus: %s\n", strerror(pb_disk_dev));
+			return(1);
+		}
+		fprintf(stderr, "Attached disk (image %s) in slot %d\n", disk_file, pb_disk_dev);
+	}
 	z80_init(); // initialise decoding tables
 	int prog=open(PROGRAM, O_RDONLY);
 	if(prog<0)

@@ -2,4 +2,5 @@
 *.o
 *.zo
 *.sym
+*.img
 pegasus
