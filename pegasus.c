@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
 #include "bits.h"
 #include "ops.h"
 #include "pegbus.h"
@@ -49,6 +50,13 @@ mmu_t;
 #define TTY_BUF_LEN	128
 
 #define FRAME_LEN	350000 /* 1/10 of a second at 3.5MHz */
+
+volatile sig_atomic_t siginted=0;
+
+void sigint_handler(__attribute__((unused)) int sig)
+{
+	siginted=1;
+}
 
 int main(int argc, char * argv[])
 {
@@ -173,6 +181,11 @@ int main(int argc, char * argv[])
 #endif
 	bool can_progress; // _someone_ isn't WAITed
 	bool work_to_do; // _someone_ isn't DI HALT
+	if(signal(SIGINT, sigint_handler)==SIG_ERR)
+	{
+		perror("Failed to wire SIGINT: signal");
+		return(1);
+	}
 	while(!errupt)
 	{
 		if(tty_buf_wp!=tty_buf_rp)
@@ -443,12 +456,18 @@ int main(int argc, char * argv[])
 		if(!work_to_do)
 		{
 			fprintf(stderr, "Powerdown!\n");
+			pcstate:
 			for(int ci=0;ci<(int)nr_cpus;ci++)
 			{
 				uint16_t pc=cpu[ci].regs[0]|(cpu[ci].regs[1]<<8);
 				fprintf(stderr, "%02x: PC = %04x, IFF %d %d\n", ci, pc, cpu[ci].IFF[0], cpu[ci].IFF[1]);
 			}
 			break;
+		}
+		if(siginted)
+		{
+			fprintf(stderr, "Interrupted!\n");
+			goto pcstate;
 		}
 		if(++T>=FRAME_LEN)
 			T-=FRAME_LEN;
