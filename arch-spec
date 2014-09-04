@@ -35,8 +35,8 @@ The MMU is controlled through I/O port 0x04, as follows:
 AMSB<15|14|13|12|11|10|09|08|07|06|05|04|03|02|01|00>ALSB  DMSB<7|6|5|4|3|2|1|0>DLSB
 WR  < 0|IO| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Maps memory page ppage into vpage.  If IO bit set, maps in peripheral device memory for MMIO instead.  (Two unused bits, A13 and A12)
 WR  < 1|IO|    prot_bits    | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Sets protection bits on memory page ppage.  If IO bit set, applies to peripheral device memory instead.  (prot_bits interpretation TBD)  (All bits used).
-RD  < 0| 0| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Returns the ppage mapped in at vpage.  (Three unused request bits, A14-A12)
-RD  < 0| 0| 0| 1|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          < prot_bits |I|0>        Returns the protection bits of page mapped at vpage; D1 is set if it is peripheral device memory.  (Three unused request bits A14-12 and one unused response bit D0)
+RD  < 0| 0| 0| 0|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          <     ppage     >        Returns the ppage mapped in at vpage.
+RD  < 0| 0| 0| 1|   vpage   | 0| 0| 0| 0| 0| 1| 0| 0>          < prot_bits |I|0>        Returns the protection bits of page mapped at vpage; D1 is set if it is peripheral device memory.  (One unused response bit D0)
 RD  < 0| 0| 1| 0| 0| 0| 0| 0| 0| 0| 0| 0| 0| 1| 0| 0>          <   socket_id   >        Returns the socket ID of the requesting processor.  This implicitly limits the number of processors to 256.
 Any reads/writes not matching any of the above have undefined behaviour.
 
