@@ -16,7 +16,7 @@ _main_page_loop:
 	LD I,A
 ; we are now online
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,start_msg_1
 	CALL kputs_unlocked
 	LD A,(IY+0)
@@ -24,7 +24,7 @@ _main_page_loop:
 	LD HL,start_msg_2
 	CALL kputs_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	LD A,(IY+0)
 	AND A
 	CALL Z,cpu0_setup
@@ -94,14 +94,14 @@ unhandled_irq:
 	EX DE,HL
 	ADD IY,DE		; IY points to the percpu_struct
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,unh_irq
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 	EXX
 	EX AF,AF'

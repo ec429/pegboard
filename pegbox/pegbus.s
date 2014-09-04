@@ -1,5 +1,6 @@
 .include "debug.inc"
 .include "sched.inc"
+.include "spinlock.inc"
 .include "pegbus.inc"
 
 .text
@@ -17,7 +18,7 @@ pegbus_setup:
 	CALL pegbus_register_driver
 					; hook up the IRQ lines for all 16 possible pegbus slots
 	LD HL,INT_pegbus_0
-	LD DE,(INT_pegbus_1-INT_pegbus_0); makes use of the fact that they're all the same length
+	LD DE,INT_pegbus_1-INT_pegbus_0; makes use of the fact that they're all the same length
 	LD (ivtbl+0x80),HL
 	ADD HL,DE
 	LD (ivtbl+0x82),HL
@@ -56,6 +57,7 @@ INT_pegbus_0:
 	LD A,0
 	JR INT_pegbus
 
+.globl INT_pegbus_1
 INT_pegbus_1:
 	EX AF,AF'
 	LD A,1
@@ -275,7 +277,7 @@ pegbus_register_driver:
 	LD L,(IX+PDRV_ID); get driver->device_id
 	LD H,(IX+PDRV_ID+1)
 	LD IX,pegbus_drivers_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD B,16
 	LD IX,pegbus_devices
 _pegbus_register_driver_loop:
@@ -296,23 +298,6 @@ _pegbus_register_driver_loop:
 	LD (IX+PDEV_DRIV+1),D
 	PUSH DE
 	POP IX			; driver
-	CALL _INT_pegbus_do_probe
-	POP IX
-	POP BC
-_pegbus_register_driver_next:
-	LD DE,PEGBUS_DEVICE_SIZE
-	ADD IX,DE
-	DJNZ _pegbus_register_driver_loop
-	LD DE,pegbus_drivers
-	POP HL
-	CALL list_add_tail
-	LD IX,pegbus_drivers_lock
-	CALL spin_unlock
-	RET
-
-test_device_driver_probe:; probe device *IX
-	LD A,(IX+PDEV_SLOT)
-	PUSH AF
 	LD BC,0x0f00|IO_MMU; get page mapped in at 0xf000
 	IN E,(C)
 	LD B,0x1f
@@ -324,8 +309,7 @@ test_device_driver_probe:; probe device *IX
 	RLCA
 	RLCA
 	OUT (C),A		; map in device's first page at 0xf000
-	LD A,PEGBUS_CMD_SHUTUP
-	LD (0xf003),A
+	CALL _INT_pegbus_do_probe
 	POP DE			; E=oldpage, D=oldprotbits
 	LD BC,0x0f00|IO_MMU; restore previously mapped page
 	LD A,2
@@ -336,6 +320,24 @@ test_device_driver_probe:; probe device *IX
 	OR B
 	LD B,A
 	OUT (C),E
+	POP IX
+	POP BC
+_pegbus_register_driver_next:
+	LD DE,PEGBUS_DEVICE_SIZE
+	ADD IX,DE
+	DJNZ _pegbus_register_driver_loop
+	LD DE,pegbus_drivers
+	POP HL
+	CALL list_add_tail
+	LD IX,pegbus_drivers_lock
+	CALL spin_unlock_irqsave
+	RET
+
+test_device_driver_probe:; probe device *IX, mapped at 0xf000
+	LD A,(IX+PDEV_SLOT)
+	PUSH AF
+	LD A,PEGBUS_CMD_SHUTUP
+	LD (0xf003),A
 	LD HL,test_device_driver_probed
 	LD IX,kprint_lock
 	CALL spin_lock

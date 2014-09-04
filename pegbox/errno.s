@@ -4,7 +4,7 @@
 perror:
 	LD IX,kprint_lock
 	PUSH IX
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	CALL kputs_unlocked
 	LD HL,error_string_1
 	CALL kputs_unlocked
@@ -42,7 +42,7 @@ perror_donl:
 	LD A,0x0a
 	CALL kputc_unlocked
 	POP IX
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .data

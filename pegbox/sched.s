@@ -31,23 +31,23 @@ get_process:
 .globl sched_choose	; returns (in IX) a runnable process from the runq, if there is one, else carry flag
 sched_choose:		; must be called with interrupts disabled
 	LD IX,runq_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,runq
 	CALL list_empty
 	JR NZ,_sched_choose_pop
 					; no process runnable
 	LD IX,runq_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .if DEBUG
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,sched_waiting
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	SCF
 	RET
@@ -59,12 +59,12 @@ _sched_choose_pop:
 	PUSH HL
 	CALL list_del	; remove from runq
 	LD IX,runq_lock	; now we're unreachable from the runq, so we can release the runq_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,sched_chose_1
 	CALL kputs_unlocked
 	POP IX
@@ -78,7 +78,7 @@ _sched_choose_pop:
 	LD A,0x0a
 	CALL kputc_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .endif
 	AND A			; clear carry
@@ -106,7 +106,7 @@ sched_enter:
 sched_exit:
 .if DEBUG
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,sched_exit_1
 	CALL kputs_unlocked
 	LD A,(IY+1)		; pid
@@ -118,7 +118,7 @@ sched_exit:
 	LD A,0x0a
 	CALL kputc_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	LD A,(IY+1)		; pid
 	CALL get_process
@@ -130,11 +130,11 @@ sched_put:			; must be called with interrupts disabled
 	POP IX
 	LD (IX+5),TASK_RUNNABLE
 	LD IX,runq_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD DE,runq
 	CALL list_add_tail
 	LD IX,runq_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	XOR A
 	LD (IY+1),A		; no pid
 	RET
@@ -149,7 +149,7 @@ sched_sleep:
 	SPSWAP
 .if DEBUG
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,sched_sleep_1
 	CALL kputs_unlocked
 	LD A,(IY+1)		; pid
@@ -161,7 +161,7 @@ sched_sleep:
 	LD A,0x0a
 	CALL kputc_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	XOR A
 	LD (IY+1),A		; no pid
@@ -183,7 +183,7 @@ sched_yield:
 	PUSH HL
 .if DEBUG
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,sched_yield_1
 	CALL kputs_unlocked
 	LD A,(IY+1)		; pid
@@ -195,7 +195,7 @@ sched_yield:
 	LD A,0x0a
 	CALL kputc_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	POP HL
 	CALL sched_put
@@ -270,7 +270,7 @@ _do_fork_gotpage:
 	PUSH BC
 	PUSH IX
 	LD IX,runq_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	POP IX
 	LD (IX+5),TASK_RUNNABLE
 	PUSH IX
@@ -278,13 +278,13 @@ _do_fork_gotpage:
 	LD DE,runq
 	CALL list_add_tail
 	LD IX,runq_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	STI
 	POP AF
 .if DEBUG
 	PUSH AF
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,got_proc_1
 	CALL kputs_unlocked
 	POP AF
@@ -292,7 +292,7 @@ _do_fork_gotpage:
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP AF
 .endif
 	LD E,0
@@ -300,7 +300,7 @@ _do_fork_gotpage:
 
 choose_pid:			; returns chosen pid in A, or 0 with errno in E
 	LD IX,nextpid_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,nextpid
 	LD A,(HL)
 	LD B,A
@@ -316,7 +316,7 @@ _choose_pid_loop:
 _choose_pid_cont:
 	CP C			; are we back to the nextpid we started with?
 	JR NZ,_choose_pid_loop; then there must be no free slots
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	LD A,0
 	LD E,EAGAIN
 	RET
@@ -326,7 +326,7 @@ _choose_pid_chosen:
 	PUSH AF
 	INC A
 	LD (HL),A
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP AF
 	RET
 
@@ -358,7 +358,7 @@ _claim_pid_mask:	; test the corresponding bit
 
 free_pid:			; Frees pid A
 	LD IX,nextpid_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,pid_map
 	LD D,0
 	LD E,A
@@ -381,7 +381,7 @@ _free_pid_mask:		; test the corresponding bit
 	LD A,E
 	XOR D
 	LD (HL),A
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .globl setup_scheduler
@@ -455,7 +455,7 @@ exit_proc:			; A process which RETs its entry point ends up here
 exec_init:
 .if DEBUG
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,exec_init_1
 	CALL kputs_unlocked
 	LD A,(IY+0)
@@ -466,7 +466,7 @@ exec_init:
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	LD IX,test_sema
 	CALL sema_init_mutex

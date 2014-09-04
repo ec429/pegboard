@@ -16,7 +16,7 @@ main.zo: sched.inc list.inc mem.inc spinlock.inc
 sched.zo: sched.inc list.inc mem.inc spinlock.inc
 mem.zo: mem.inc
 panic.zo: mem.inc spinlock.inc
-pegbus.zo: pegbus.inc sched.inc list.inc mem.inc
+pegbus.zo: pegbus.inc sched.inc list.inc mem.inc spinlock.inc
 semaphore.zo: semaphore.inc spinlock.inc sched.inc
 spinlock.zo: spinlock.inc
 

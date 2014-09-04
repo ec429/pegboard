@@ -14,7 +14,7 @@ _SPINLOCK_INC equ 1
 	EI
 .endm
 
-.macro spin_lock_at disp; acquire lock at IX+disp
+.macro spin_lock_at disp; acquire lock at IX+disp, disabling interrupts
 	CLI
 	.byte 0xdd		; locked-instruction prefix
 	sra (IX+\disp)	; contains the second DD

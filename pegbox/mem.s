@@ -7,7 +7,7 @@
 .globl setup_mem_map
 setup_mem_map:
 	LD IX,mem_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD (IX+1),0
 	LD BC,256-RESERVED_PPAGES
 	LD DE,mem_map+1
@@ -30,9 +30,9 @@ smm_next_page:
 	JR NZ,smm_next_page
 smm_end_free_pages:
 	PUSH DE
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,mem_map_ready
 	CALL kputs_unlocked
 	LD HL,mem_size_1
@@ -41,7 +41,7 @@ smm_end_free_pages:
 	CALL kprint_hex_unlocked
 	LD HL,mem_size_2
 	CALL kputs_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .globl get_page		; returns page number (or 0) in A, errno in E
@@ -52,7 +52,7 @@ get_page:
 	RET Z
 	LD IX,mem_lock
 	PUSH IX
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD A,(IX+1)
 	AND A
 	LD E,ENOMEM
@@ -69,11 +69,11 @@ gp_next_page:
 	LD A,(IY+1)		; PID
 	LD (IX+0),A
 	POP IX
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	PUSH DE
 .if DEBUG
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,got_page_1
 	CALL kputs_unlocked
 	LD A,(IY+1)		; PID
@@ -86,14 +86,14 @@ gp_next_page:
 	LD A,0x0a
 	CALL kputc_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	LD E,0
 	POP AF
 	RET
 gp_fail:
 	POP IX
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .if DEBUG
 	PUSH DE
 	LD HL,get_page_fail
@@ -110,7 +110,7 @@ free_page:
 	RET C
 	LD D,(IY+1)		; PID
 	LD IX,mem_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD B,0
 	LD C,A
 	LD HL,mem_map-RESERVED_PPAGES
@@ -121,12 +121,12 @@ free_page:
 	JR NZ,fp_fail
 	LD (HL),A		; the SUB will have left A=0
 	INC (IX+1)		; mem_free
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .if DEBUG
 	PUSH BC
 	PUSH DE
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,freed_page_1
 	CALL kputs_unlocked
 	POP AF
@@ -139,12 +139,12 @@ free_page:
 	LD A,0x0a
 	CALL kputc_unlocked
 	LD IX,kprint_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 .endif
 	LD E,0
 	RET
 fp_fail:
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .data

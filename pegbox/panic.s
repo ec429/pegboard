@@ -9,7 +9,7 @@ panic:
 	LD HL,can_start_other_cpus
 	LD (HL),0
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,panic_msg_1
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
@@ -52,7 +52,7 @@ _panic_stack_loop:
 	DJNZ _panic_stack_loop
 	LD HL,panic_msg_5
 	CALL kputs_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	HALT
 
 .data

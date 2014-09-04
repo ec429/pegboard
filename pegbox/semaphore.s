@@ -27,7 +27,7 @@ down_interruptible:
 	; fall into _down
 _down:				; (struct semaphore *)IX, enum status_t D
 	CLI
-	;spin_lock(sem->lock);
+	;spin_lock_irqsave(sem->lock);
 	SPIN_LOCK_AT SEMA_LOCK
 	;if (!sem->value) { /* contention case - put us on the waitq */
 	LD A,(IX+SEMA_VAL)
@@ -45,20 +45,20 @@ _down:				; (struct semaphore *)IX, enum status_t D
 	PUSH IX
 	POP DE
 	CALL list_add_tail
-	;	spin_unlock(sem->lock);
+	;	spin_unlock_irqsave(sem->lock);
 	POP IX
 	SPIN_UNLOCK_AT SEMA_LOCK
 .if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,contention_in_down
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .endif
 	;	sched_sleep();
@@ -67,14 +67,14 @@ _down:				; (struct semaphore *)IX, enum status_t D
 .if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,down_after_contention
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .endif
 	RET
@@ -82,20 +82,20 @@ _down:				; (struct semaphore *)IX, enum status_t D
 _down_fast:
 	;	sem->value--;
 	DEC (IX+SEMA_VAL)
-	;	spin_unlock(sem->lock);
+	;	spin_unlock_irqsave(sem->lock);
 	SPIN_UNLOCK_AT SEMA_LOCK
 	;}
 .if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,down_without_contention
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .endif
 	STI
@@ -103,7 +103,7 @@ _down_fast:
 
 .globl up			; (struct semaphore *)IX
 up:
-	;spin_lock(sem->lock);
+	;spin_lock_irqsave(sem->lock);
 	SPIN_LOCK_AT SEMA_LOCK
 	;if (list_empty(sem->waitq)) {
 	CALL list_empty_ix
@@ -112,19 +112,19 @@ up:
 	INC (IX+SEMA_VAL)
 	;	BUG_ON(!sem->value);
 	CALL Z,panic
-	;	spin_unlock(sem->lock);
+	;	spin_unlock_irqsave(sem->lock);
 	SPIN_UNLOCK_AT SEMA_LOCK
 .if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,up_no_waiter
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .endif
 	RET
@@ -133,35 +133,35 @@ _up_wake:
 	;	next = list_pop(sem->waitq);
 	PUSH IX
 	CALL list_pop
-	;	spin_unlock(sem->lock);
+	;	spin_unlock_irqsave(sem->lock);
 	POP IX
 	SPIN_UNLOCK_AT SEMA_LOCK
 	;	next->status = TASK_RUNNABLE;
 	PUSH HL
 	POP IX
 	LD (IX+PROC_STAT),TASK_RUNNABLE
-	;	spin_lock(runq_lock);
+	;	spin_lock_irqsave(runq_lock);
 	LD IX,runq_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	;	list_add(&next->runq, runq); /* we add it to the head of the runq because it's been waiting.  Untested heuristic */
 	LD BC,runq
 	CALL list_add
-	;	spin_unlock(runq_lock);
+	;	spin_unlock_irqsave(runq_lock);
 	LD IX,runq_lock
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	;	wake_one_cpu(); /* not implemented yet, requires IPIs */
 	;}
 .if DEBUG
 	PUSH IX
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	LD HL,up_woke_waiter
 	CALL kputs_unlocked
 	LD A,(IY+0)		; cpuid
 	CALL kprint_hex_unlocked
 	LD A,0x0a
 	CALL kputc_unlocked
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	POP IX
 .endif
 	RET

@@ -5,9 +5,9 @@ IO_TERMINAL	equ 0x10
 .globl kputc		; write single character (in A) to terminal
 kputc:
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	OUT (IO_TERMINAL),A
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .globl kputc_unlocked ; as kputc but must already hold the kprint_lock
@@ -33,9 +33,9 @@ kputs_prepare:
 kputs:
 	CALL kputs_prepare
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	OTIR
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .globl kputs_unlocked ; as kputs but must already hold the kprint_lock
@@ -68,13 +68,13 @@ khp_save:
 kprint_hex:
 	CALL kprint_hex_prepare
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	OUT (IO_TERMINAL),A
 	LD A,D
 	OUT (IO_TERMINAL),A
 	LD A,0x0a
 	OUT (IO_TERMINAL),A
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .globl kprint_hex_unlocked ; as kprint_hex but must already hold the kprint_lock; and no \n
@@ -90,11 +90,11 @@ kprint_half_hex:
 	CALL kprint_hex_prepare
 	LD A,D
 	LD IX,kprint_lock
-	CALL spin_lock
+	CALL spin_lock_irqsave
 	OUT (IO_TERMINAL),A
 	LD A,0x0a
 	OUT (IO_TERMINAL),A
-	CALL spin_unlock
+	CALL spin_unlock_irqsave
 	RET
 
 .globl kprint_half_hex_unlocked ; as kprint_half_hex but must already hold the kprint_lock; and no \n
