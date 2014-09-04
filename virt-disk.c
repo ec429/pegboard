@@ -38,8 +38,9 @@ uint8_t virt_disk_write_trap(struct pegbus_device *self, uint16_t addr, uint8_t 
 	return(data);
 }
 
-#define complete()	do { pb_mem(VIRT_DISK_ADDR_CMD)|=0x80; self->do_tick=false; } while(0)
-#define error(_e)	do { pb_mem(VIRT_DISK_ADDR_CMD)=0xe0|(_e); self->do_tick=false; } while(0)
+#define pb_irq()	if(!dev->shutup) { self->irq=true; }
+#define complete()	do { pb_mem(VIRT_DISK_ADDR_CMD)|=0x80; self->do_tick=false; pb_irq(); } while(0)
+#define error(_e)	do { pb_mem(VIRT_DISK_ADDR_CMD)=0xe0|(_e); self->do_tick=false; pb_irq(); } while(0)
 
 void virt_disk_tick(struct pegbus_device *self)
 {
