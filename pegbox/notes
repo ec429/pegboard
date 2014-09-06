@@ -63,9 +63,23 @@ Process stack page layout:
 	0012:
 	Stack starts at top of page (and grows down).  On yield/swap, push AF BC DE HL IX and save SP (we do not save shadow registers, nor IY which should always point to the percpu_struct).
 
+kmalloc arena:
+	For now, we'll just do a dumb heap.  It's fraggy, but we can always replace it later.  So: we have a pair of struct list_heads at the bottom (the blocklist and the freelist), and then the arena is divided into these:
+	struct heap_item {
+		struct list_head list;
+		uint16_t length;
+		union {
+			char data[];
+			struct list_head frel;
+		}
+	};
+	The high bit of 'length' will be set iff the space is free.
+	For now, allocation will be first-fit - again, leading to severe fragmentation, but that won't be a problem until we're actually allocating enough to at least use up one page.
+	Tests with a C implementation and a random load showed about 70% memory utilisation, ie. it took nearly 3kB of active allocations before a malloc failed.  As suggested above, that's probably good enough for now.
+
 Next steps:
-	Define a simple virtual disk device, and write a driver for it.
 	Implement a kmalloc/kfree.
+	Define a simple virtual disk device, and write a driver for it.
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.  (Probably just an OUT whose high address byte is CPUid, and the data byte could be a mailbox number of some sort.)
 	Design a system call entry mechanism that allows for protection (eg. prevent mapping in kernel pages except by sysenter.  Maybe use RST 38 as SYSENTER.  This, and interrupts, need to automatically page in 0 at 0).
