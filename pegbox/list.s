@@ -88,6 +88,34 @@ list_pop:
 	POP HL			; next
 	RET
 
+.globl list_replace	; replace HL with DE.  Does not make HL empty!
+list_replace:
+	PUSH HL
+	POP IX
+	LD C,(IX+0)		; BC = old->next
+	LD B,(IX+1)
+	PUSH DE
+	POP IX
+	LD (IX+0),C		; new->next = BC
+	LD (IX+1),B
+	PUSH BC
+	POP IX
+	LD (IX+2),E		; new->next->prev = new
+	LD (IX+3),D
+	PUSH HL
+	POP IX
+	LD C,(IX+2)		; BC = old->prev
+	LD B,(IX+3)
+	PUSH DE
+	POP IX
+	LD (IX+2),C		; new->prev = BC
+	LD (IX+3),B
+	PUSH BC
+	POP IX
+	LD (IX+0),E		; new->prev->next = new
+	LD (IX+1),D
+	RET
+
 .globl list_empty
 list_empty:			; set Z flag if list at HL is empty
 	PUSH HL
