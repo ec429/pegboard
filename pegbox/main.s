@@ -34,6 +34,7 @@ _main_idle:
 	JR _main_idle
 cpu0_setup:
 	CALL setup_mem_map
+	CALL init_kmalloc_arena
 	CALL setup_scheduler
 	CALL setup_interrupts
 	CALL pegbus_setup

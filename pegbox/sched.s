@@ -472,7 +472,7 @@ exec_init:
 	CALL sema_init_mutex
 	CALL do_fork
 	JR NC,_exec_forked
-	LD HL,fork
+	LD HL,STR_fork
 	CALL perror
 	RET
 _exec_forked:
@@ -485,6 +485,16 @@ _exec_forked:
 	CALL up
 	CALL sched_yield
 	CALL sched_yield
+	LD BC,0x10
+	CALL kmalloc
+	LD A,L
+	OR H
+	JR NZ,_ef1
+	LD HL,STR_kmalloc
+	CALL perror
+	CALL panic
+_ef1:
+	CALL kfree
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
 .data
@@ -503,7 +513,8 @@ sched_exit_2: .asciz " preempted on CPU "
 sched_yield_2: .asciz " yield     on CPU "
 sched_sleep_2: .asciz " slept     on CPU "
 .endif
-fork: .asciz "fork"
+STR_fork: .asciz "fork"
+STR_kmalloc: .asciz "kmalloc"
 
 .bss
 runq: .skip 4

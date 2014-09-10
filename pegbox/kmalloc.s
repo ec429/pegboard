@@ -1,0 +1,78 @@
+.include "mem.inc"
+.include "errno.inc"
+.include "debug.inc"
+
+KMALLOC_FREL equ KMALLOC_BASE+4
+KMALLOC_FIRST equ KMALLOC_FREL+4
+
+HEAP_ITEM_SIZE equ 6
+; struct heap_item {
+KMHI_LIST equ 0;	struct list_head list;
+KMHI_LEN  equ 4;	uint16_t length;
+KMHI_DATA equ 6;	char data[];
+;}
+
+FREE_ITEM_SIZE equ 10
+;struct free_item {
+KMFI_LIST equ KMHI_LIST;	struct list_head list;
+KMFI_LEN  equ KMHI_LEN ;	uint16_t length;
+KMFI_FREL equ KMHI_DATA;	struct list_head frel;
+;}
+
+KMALLOC_INITIAL_FREE_BLOCK_LENGTH equ KMALLOC_PAGES*PAGE_SIZE-(KMALLOC_FIRST-KMALLOC_BASE)-HEAP_ITEM_SIZE
+
+.globl init_kmalloc_arena; initialise the kmalloc arena
+init_kmalloc_arena:
+	BUILD_BUG_ON(KMALLOC_PAGES!=1)
+	LD (IY+1),1		; mark our running process as init, so we can get_page
+	CALL get_page
+	LD (IY+1),0		; clear our running process (as we're not actually running init)
+	AND A
+	CALL Z,panic
+	LD (kmalloc_ppage0),A
+	LD BC,(KMALLOC_VPAGE0<<8)+4
+	OUT (C),A		; page in phys A at virt KMALLOC_VPAGE0
+	LD IX,KMALLOC_BASE; initialise kmalloc_base and kmalloc_frel
+	CALL init_list_head
+	PUSH IX
+	LD IX,KMALLOC_FREL
+	CALL init_list_head
+	LD IX,KMALLOC_FIRST; kmalloc_first->length = (arena_size - sizeof(*kmalloc_base) - sizeof(*kmalloc_frel) - sizeof(struct heap_item)) | 0x8000;
+	LD HL,KMALLOC_INITIAL_FREE_BLOCK_LENGTH|0x8000
+	LD (IX+KMFI_LEN),L
+	LD (IX+KMFI_LEN+1),H
+	PUSH IX
+	POP HL
+	POP BC
+	CALL list_add	; list_add(&kmalloc_first->list, kmalloc_base);
+	LD BC,KMALLOC_FREL
+	LD HL,KMALLOC_FIRST+KMFI_FREL
+	CALL list_add	; list_add(&kmalloc_first->frel, kmalloc_frel);
+.if DEBUG
+	LD HL,kmalloc_ready
+	CALL kputs
+.endif
+	RET
+
+.globl kmalloc		; allocate BC bytes, return in HL
+kmalloc:
+	LD E,ENOMEM
+	LD HL,0
+	RET
+
+.globl kfree		; free kmalloc'd memory at HL
+kfree:
+	CALL panic
+	RET
+
+.data
+.if DEBUG
+kmalloc_ready: .ascii "kmalloc arena ready, 0x"
+.byte KMALLOC_PAGES+'0'-1
+BUILD_BUG_ON(KMALLOC_INITIAL_FREE_BLOCK_LENGTH&0xfff != 0xff2)
+.ascii "ff2 bytes"
+.byte 0x0a, 0
+.endif
+
+.bss
+kmalloc_ppage0: .byte 0
