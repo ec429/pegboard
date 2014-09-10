@@ -7,7 +7,6 @@
 .globl setup_mem_map
 setup_mem_map:
 	LD IX,mem_lock
-	CALL spin_lock_irqsave
 	LD (IX+1),0
 	LD C,IO_MMU
 	LD B,VPAGE_STACK
@@ -25,7 +24,6 @@ smm_next_page:
 	JR NZ,smm_next_page
 smm_end_free_pages:
 	PUSH DE
-	CALL spin_unlock_irqsave
 	LD IX,kprint_lock
 	CALL spin_lock_irqsave
 	LD HL,mem_map_ready
