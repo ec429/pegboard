@@ -9,11 +9,6 @@ setup_mem_map:
 	LD IX,mem_lock
 	CALL spin_lock_irqsave
 	LD (IX+1),0
-	LD BC,256-RESERVED_PPAGES
-	LD DE,mem_map+1
-	LD HL,mem_map
-	LD (HL),0
-	LDIR
 	LD C,IO_MMU
 	LD B,VPAGE_STACK
 	LD D,RESERVED_PPAGES
