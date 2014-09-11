@@ -19,7 +19,7 @@ panic.zo: mem.inc spinlock.inc
 pegbus.zo: pegbus.inc sched.inc list.inc mem.inc spinlock.inc
 semaphore.zo: semaphore.inc spinlock.inc sched.inc
 spinlock.zo: spinlock.inc
-kmalloc.zo: mem.inc
+kmalloc.zo: mem.inc list.inc spinlock.inc
 
 %.zo: %.s errno.inc debug.inc
 	$(TARGET_AS) $(TARGET_ASFLAGS) $< -o $@

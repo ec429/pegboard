@@ -1,15 +1,19 @@
 .include "mem.inc"
+.include "list.inc"
 .include "errno.inc"
 .include "debug.inc"
+.include "spinlock.inc"
 
-KMALLOC_FREL equ KMALLOC_BASE+4
-KMALLOC_FIRST equ KMALLOC_FREL+4
+KMALLOC_FREL equ KMALLOC_BASE+LIST_HEAD_SIZE
+KMALLOC_ZERO equ KMALLOC_FREL+LIST_HEAD_SIZE; all kmalloc(0) return this, and it can be free()d repeatedly.  The byte at this address is safe to scribble on (but don't do so on purpose)
+KMALLOC_LOCK equ KMALLOC_ZERO+1
+KMALLOC_FIRST equ KMALLOC_LOCK+1
 
 HEAP_ITEM_SIZE equ 6
 ; struct heap_item {
 KMHI_LIST equ 0;	struct list_head list;
-KMHI_LEN  equ 4;	uint16_t length;
-KMHI_DATA equ 6;	char data[];
+KMHI_LEN  equ LIST_HEAD_SIZE;	uint16_t length;
+KMHI_DATA equ LIST_HEAD_SIZE+2;	char data[];
 ;}
 
 FREE_ITEM_SIZE equ 10
@@ -35,6 +39,8 @@ init_kmalloc_arena:
 	LD IX,KMALLOC_BASE; initialise kmalloc_base and kmalloc_frel
 	CALL init_list_head
 	PUSH IX
+	LD IX,KMALLOC_LOCK
+	LD (IX+0),SPINLOCK_UNLOCKED
 	LD IX,KMALLOC_FREL
 	CALL init_list_head
 	LD IX,KMALLOC_FIRST; kmalloc_first->length = (arena_size - sizeof(*kmalloc_base) - sizeof(*kmalloc_frel) - sizeof(struct heap_item)) | 0x8000;
@@ -56,7 +62,69 @@ init_kmalloc_arena:
 
 .globl kmalloc		; allocate BC bytes, return in HL
 kmalloc:
+	LD A,0x80		; if (len & 0x8000) { errno = EINVAL; return NULL; }
+	AND B
+	LD E,EINVAL
+	JR NZ,_kmalloc_fail
+	LD A,B
+	AND A
+	JR NZ,_kmalloc_sizeok
+	LD A,C
+	AND A			; if (!len)
+	JR NZ,_kmalloc_minsize
+	LD HL,KMALLOC_ZERO;	return kmalloc_zero;
+	RET
+_kmalloc_minsize:
+	CP LIST_HEAD_SIZE; else if (len < sizeof(struct list_head))
+	JR NC,_kmalloc_sizeok
+	LD C,LIST_HEAD_SIZE;	len = sizeof(struct list_head);
+_kmalloc_sizeok:
+	LD IX,KMALLOC_LOCK
+	CALL spin_lock_irqsave
+	LD IX,KMALLOC_FREL; struct list_head *ptr = frel;
+_kmalloc_loop:		; while ((ptr = arena + ptr->next) != frel) {
+	PUSH IX
+	LD L,(IX+KMFI_LIST)
+	LD H,(IX+KMFI_LIST+1)
+	POP DE
+	PUSH HL
+	AND A			; clear carry flag
+	SBC HL,DE
+	POP IX			; ptr = IX; item = container_of(ptr, struct free_item, frel); /* &item->frel == ptr */
 	LD E,ENOMEM
+	JR Z,_kmalloc_fail
+	LD E,(IX-KMFI_FREL+KMFI_LEN); if (item->length < (len|0x8000))
+	LD D,(IX-KMFI_FREL+KMFI_LEN+1)
+	LD A,0x80
+	OR B
+	LD H,A
+	LD L,C
+	SBC HL,DE
+	JR C,_kmalloc_loop;	continue;
+	LD A,0x7f		; item->length &= ~0x8000;
+	AND D
+	LD D,A
+	LD (IX-KMFI_FREL+KMFI_LEN+1),D
+	PUSH BC			; if (item->length <= len + sizeof(struct free_item))
+	PUSH DE
+	LD HL,FREE_ITEM_SIZE+1
+	ADD HL,BC
+	SBC HL,DE
+	POP DE
+	POP BC
+	JR C,_kmalloc_split
+_kmalloc_split:		; for now we're lazy and don't split
+	PUSH IX
+	PUSH IX
+	POP HL
+	CALL list_del	; list_del(&item->frel);
+	BUILD_BUG_ON(KMFI_FREL != KMHI_DATA)
+	POP HL			; ((struct heap_item *)item)->data
+	LD E,0			; Successfully allocated!
+	RET
+_kmalloc_fail:
+	LD IX,KMALLOC_LOCK
+	CALL spin_unlock_irqsave
 	LD HL,0
 	RET
 
@@ -69,8 +137,8 @@ kfree:
 .if DEBUG
 kmalloc_ready: .ascii "kmalloc arena ready, 0x"
 .byte KMALLOC_PAGES+'0'-1
-BUILD_BUG_ON(KMALLOC_INITIAL_FREE_BLOCK_LENGTH&0xfff != 0xff2)
-.ascii "ff2 bytes"
+BUILD_BUG_ON(KMALLOC_INITIAL_FREE_BLOCK_LENGTH&0xfff != 0xff0)
+.ascii "ff0 bytes"
 .byte 0x0a, 0
 .endif
 
