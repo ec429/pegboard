@@ -21,7 +21,7 @@ spin_unlock:
 
 .globl spin_unlock_irqsave; release lock at IX.  Clobbers: A
 spin_unlock_irqsave:
-	LD A,0xfe
+	LD A,SPINLOCK_UNLOCKED
 	.byte 0xdd		; locked-instruction prefix
 	LD (IX+0),A
 	STI

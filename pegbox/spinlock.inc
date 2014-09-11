@@ -1,6 +1,8 @@
 .ifndef _SPINLOCK_INC
 _SPINLOCK_INC equ 1
 
+SPINLOCK_UNLOCKED equ 0xfe
+
 .macro cli			; counting DI
 	DI
 	INC (IY+2)
@@ -22,7 +24,7 @@ _SPINLOCK_INC equ 1
 .endm
 
 .macro spin_unlock_at disp; release lock at IX+disp.  Clobbers: A
-	ld a,0xfe
+	ld a,SPINLOCK_UNLOCKED
 	.byte 0xdd		; locked-instruction prefix
 	ld (IX+\disp),a
 	STI
