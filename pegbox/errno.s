@@ -60,10 +60,15 @@ error_table:
 	.word ehwhatnow
 	.endr
 	.word einval
+	.rept 15
+	.word ehwhatnow
+	.endr
+	.word enosys
 error_table_end:
 success: .asciz "Success"
 eagain: .asciz "Resource temporarily unavailable"
 enomem: .asciz "Out of memory"
 efault: .asciz "Bad address"
 einval: .asciz "Invalid argument"
+enosys: .asciz "Function not implemented"
 ehwhatnow: .asciz "Unknown error "

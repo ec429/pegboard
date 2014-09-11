@@ -5,5 +5,6 @@ EAGAIN equ 11
 ENOMEM equ 12
 EFAULT equ 14
 EINVAL equ 22
+ENOSYS equ 38
 
 .endif
