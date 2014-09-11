@@ -20,9 +20,12 @@ wait_to_start:
 	LD A,(HL)
 	AND A
 	JR Z,wait_to_start
+	DEC A
+	JR Z,start_main
+	HALT			; someone panicked!
 start_main:
 	JP main
 
-.bss
+.section initd, "r"
 .globl can_start_other_cpus
 can_start_other_cpus: .byte 0

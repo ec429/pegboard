@@ -7,7 +7,7 @@
 panic:
 	CLI
 	LD HL,can_start_other_cpus
-	LD (HL),0
+	LD (HL),2
 	LD IX,kprint_lock
 	CALL spin_lock_irqsave
 	LD HL,panic_msg_1

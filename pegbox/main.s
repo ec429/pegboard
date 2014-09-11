@@ -72,8 +72,8 @@ INT_timer:			; handler for timer interrupt
 _int_timer_schedule:; pick a process and schedule into it.  (And we're not in a process, so we can trash regs)
 					; but first, check no-one has panicked
 	LD A,(can_start_other_cpus)
-	AND A
-	JR Z,_int_timer_panicked
+	DEC A
+	JR NZ,_int_timer_panicked
 	CALL sched_choose
 	JR C,_int_timer_noproc
 	CLI				; taking the interrupt DI'd us; so increment the cli_depth

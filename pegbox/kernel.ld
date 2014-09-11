@@ -2,7 +2,8 @@
 OUTPUT_FORMAT("binary")
 OUTPUT_ARCH("z80")
 MEMORY {
-   initprog : ORIGIN = 0x0, LENGTH = 0x101
+   initprog : ORIGIN = 0x0, LENGTH = 0x80
+   initdata : ORIGIN = 0x80, LENGTH = 0x80
    program : ORIGIN = 0x300, LENGTH = 0x1d00
    isr : ORIGIN = 0x101, LENGTH = 0xff /* interrupt service routine */
    ivt : ORIGIN = 0x200, LENGTH = 0x100 /* interrupt vector table */
@@ -13,6 +14,10 @@ SECTIONS
 		*(.init)
 		*(init)
 		} > initprog
+.initd : {
+		*(.initd)
+		*(initd)
+		} > initdata
 .text : {
 		*(.text)
 		*(text)
