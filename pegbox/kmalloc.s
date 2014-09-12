@@ -82,7 +82,7 @@ _kmalloc_sizeok:
 	LD IX,KMALLOC_LOCK
 	CALL spin_lock_irqsave
 	LD IX,KMALLOC_FREL; struct list_head *ptr = frel;
-_kmalloc_loop:		; while ((ptr = arena + ptr->next) != frel) {
+_kmalloc_loop:		; while ((ptr = ptr->next) != frel) {
 	PUSH IX
 	LD L,(IX+KMFI_LIST)
 	LD H,(IX+KMFI_LIST+1)
@@ -113,7 +113,6 @@ _kmalloc_loop:		; while ((ptr = arena + ptr->next) != frel) {
 	POP DE
 	POP BC
 	JR C,_kmalloc_split
-_kmalloc_split:		; for now we're lazy and don't split
 	PUSH IX
 	PUSH IX
 	POP HL
@@ -126,6 +125,50 @@ _kmalloc_fail:
 	LD IX,KMALLOC_LOCK
 	CALL spin_unlock_irqsave
 	LD HL,0
+	RET
+_kmalloc_split:
+	LD HL,HEAP_ITEM_SIZE|0x8000; new_length = (item->length - len - sizeof(struct heap_item))|0x8000;
+	ADD HL,BC
+	EX DE,HL		; HL is now item->length
+	AND A			; clear carry flag
+	SBC HL,DE
+	EX DE,HL		; DE is now new->length
+	LD (IX-KMFI_FREL+KMFI_LEN),C; item->length = len;
+	LD (IX-KMFI_FREL+KMFI_LEN+1),B
+	PUSH IX
+	BUILD_BUG_ON(KMFI_FREL != KMHI_DATA)
+	ADD IX,BC		; struct free_item *new = (struct free_item *)(hi->data + len); /* == ((void *)item->frel) + len */
+	LD (IX+KMFI_LEN),E; new->length = new_length
+	LD (IX+KMFI_LEN+1),D
+	POP BC			; list_add(&new->list, &item->list);
+	PUSH BC
+	BUILD_BUG_ON(KMFI_FREL != 6)
+	DEC BC
+	DEC BC
+	DEC BC
+	DEC BC
+	DEC BC
+	DEC BC
+	PUSH IX
+	PUSH IX
+	POP HL
+	BUILD_BUG_ON(KMHI_LIST != 0)
+	BUILD_BUG_ON(KMFI_LIST != 0)
+	CALL list_add
+					; list_replace(&item->frel, &new->frel);
+	POP HL			; is new
+	POP DE			; is item->frel
+	PUSH DE
+	BUILD_BUG_ON(KMFI_FREL != 6)
+	INC HL
+	INC HL
+	INC HL
+	INC HL
+	INC HL
+	INC HL
+	CALL list_replace
+	LD E,0			; Successfully allocated!
+	POP HL			; return ((struct heap_item *)item)->data; /* == item->frel */
 	RET
 
 .globl kfree		; free kmalloc'd memory at HL
