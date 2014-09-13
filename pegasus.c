@@ -62,10 +62,13 @@ int main(int argc, char * argv[])
 {
 	unsigned int nr_cpus=NR_CPUS, nr_pages=NR_PAGES;
 	const char *disk_file=NULL;
+	const char *core_file=NULL;
+	unsigned int core_page=0;
 	for(int arg=1;arg<argc;arg++)
 	{
 		if(argv[arg][0]=='-')
 		{
+			int bytes;
 			switch(argv[arg][1])
 			{
 				case 'c':
@@ -94,6 +97,24 @@ int main(int argc, char * argv[])
 				break;
 				case 'd':
 					disk_file=argv[arg]+2;
+				break;
+				case 'C':
+					if(sscanf(argv[arg]+2, "%u%n", &core_page, &bytes)<1)
+					{
+						fprintf(stderr, "Bad -C value %s\n", argv[arg]+2);
+						return(2);
+					}
+					if(core_page>MAX_PAGES)
+					{
+						fprintf(stderr, "-C value %u too large, max is %u\n", core_page, MAX_PAGES);
+						return(2);
+					}
+					if(argv[arg][2+bytes]!=',')
+					{
+						fprintf(stderr, "-C value %s missing comma\n", argv[arg]+2);
+						return(2);
+					}
+					core_file=argv[arg]+bytes+3;
 				break;
 				default:
 					fprintf(stderr, "Unrecognised option %s\n", argv[arg]);
@@ -471,6 +492,22 @@ int main(int argc, char * argv[])
 		}
 		if(++T>=FRAME_LEN)
 			T-=FRAME_LEN;
+	}
+	if(core_file)
+	{
+		int corefd=creat(core_file, 0644);
+		if(corefd<0)
+		{
+			perror("core_file: fopen");
+		}
+		else
+		{
+			if(write(corefd, ram[core_page], sizeof(ram_page))<(ssize_t)sizeof(ram_page))
+				perror("core_file: write");
+			else
+				fprintf(stderr, "Core page %u written to %s\n", core_page, core_file);
+			close(corefd);
+		}
 	}
 	return(0);
 }
