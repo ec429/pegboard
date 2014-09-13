@@ -183,22 +183,57 @@ kfree:
 	OR H			; /* also clears carry */
 	RET Z			;	return;
 	LD DE,KMALLOC_ZERO
-	PUSH HL
 	SBC HL,DE		; if (ptr == kmalloc_zero)
-	POP HL
 	RET Z			;	return;
+	ADD HL,DE
 	LD IX,KMALLOC_LOCK
 	CALL spin_lock
 					; struct heap_item *hi = container_of(ptr, struct heap_item, data); /* == ptr - KMHI_DATA */
 					; struct free_item *item = hi;
-					; XXX TODO: implement merging
+	PUSH HL			; if (item->list.next != base) {
 	PUSH HL
+	PUSH HL
+	POP IX
+	LD L,(IX-KMHI_DATA+KMHI_LIST)
+	LD H,(IX-KMHI_DATA+KMHI_LIST+1)
+	LD DE,KMALLOC_BASE
+	SBC HL,DE
+	JR Z,_kfree_no_merge_next
+	ADD HL,DE		; next_item = container_of(next, struct free_item, list); /* == next - KMFI_LIST */
+	PUSH HL			; if (next_item->length & 0x8000) {
+	POP IX			; /* IX = next */
+	BUILD_BUG_ON(KMFI_LEN != KMHI_LEN)
+	LD B,(IX-KMFI_LIST+KMFI_LEN+1)
+	LD A,0x80
+	AND B
+	JR Z,_kfree_no_merge_next
+	LD C,(IX-KMFI_LIST+KMFI_LEN); item->length += (next_item->length ^ 0x8000) + sizeof(struct heap_item);
+	XOR B			; /* we know A was 0x80 after the AND above */
+	LD B,A
+	PUSH IX
+	POP DE
+	POP IX
+	PUSH IX
+	LD L,(IX-KMHI_DATA+KMHI_LEN)
+	LD H,(IX-KMHI_DATA+KMHI_LEN+1)
+	PUSH DE
+	LD DE,HEAP_ITEM_SIZE
+	ADD HL,DE
+	ADD HL,BC
+	LD (IX-KMHI_DATA+KMHI_LEN),L
+	LD (IX-KMHI_DATA+KMHI_LEN+1),H
+	POP HL			; list_del(&next);
+	CALL list_del
+	LD DE,KMFI_FREL-KMFI_LIST; list_del(&next_item->frel);
+	ADD HL,DE
+	CALL list_del
+_kfree_no_merge_next:
 	POP IX
 	LD A,(IX-KMHI_DATA+KMFI_LEN+1); item->length |= 0x8000; /* mark as free */
 	OR 0x80
 	LD (IX-KMHI_DATA+KMFI_LEN+1),A
 	BUILD_BUG_ON(KMFI_FREL != KMHI_DATA)
-					; HL == item->frel == ptr
+	POP HL			; /* HL == item->frel == ptr */
 	LD DE,KMALLOC_FREL; list_add_tail(&item->frel, frel)
 	CALL list_add_tail
 	LD IX,KMALLOC_LOCK
