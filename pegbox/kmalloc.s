@@ -179,7 +179,30 @@ _kmalloc_split:		; else
 
 .globl kfree		; free kmalloc'd memory at HL
 kfree:
-	CALL panic
+	LD A,L			; if (!ptr)
+	OR H			; /* also clears carry */
+	RET Z			;	return;
+	LD DE,KMALLOC_ZERO
+	PUSH HL
+	SBC HL,DE		; if (ptr == kmalloc_zero)
+	POP HL
+	RET Z			;	return;
+	LD IX,KMALLOC_LOCK
+	CALL spin_lock
+					; struct heap_item *hi = container_of(ptr, struct heap_item, data); /* == ptr - KMHI_DATA */
+					; struct free_item *item = hi;
+					; XXX TODO: implement merging
+	PUSH HL
+	POP IX
+	LD A,(IX-KMHI_DATA+KMFI_LEN+1); item->length |= 0x8000; /* mark as free */
+	OR 0x80
+	LD (IX-KMHI_DATA+KMFI_LEN+1),A
+	BUILD_BUG_ON(KMFI_FREL != KMHI_DATA)
+					; HL == item->frel == ptr
+	LD DE,KMALLOC_FREL; list_add_tail(&item->frel, frel)
+	CALL list_add_tail
+	LD IX,KMALLOC_LOCK
+	CALL spin_unlock
 	RET
 
 .data
