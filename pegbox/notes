@@ -76,6 +76,8 @@ kmalloc arena:
 	The high bit of 'length' will be set iff the space is free.
 	For now, allocation will be first-fit - again, leading to severe fragmentation, but that won't be a problem until we're actually allocating enough to at least use up one page.
 	Tests with a C implementation and a random load showed about 70% memory utilisation, ie. it took nearly 3kB of active allocations before a malloc failed.  As suggested above, that's probably good enough for now.
+	Important invariant: the base list is in address order, which kfree() uses to merge the freed item with adjacent items if they're also free.
+	(The free list is not so ordered.)
 
 Next steps:
 	Implement a kmalloc/kfree.
