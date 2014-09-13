@@ -93,20 +93,22 @@ _kmalloc_loop:		; while ((ptr = ptr->next) != frel) {
 	POP IX			; ptr = IX; item = container_of(ptr, struct free_item, frel); /* &item->frel == ptr */
 	LD E,ENOMEM
 	JR Z,_kmalloc_fail
-	LD E,(IX-KMFI_FREL+KMFI_LEN); if (item->length < (len|0x8000))
-	LD D,(IX-KMFI_FREL+KMFI_LEN+1)
+	LD L,(IX-KMFI_FREL+KMFI_LEN); if (item->length < (len|0x8000))
+	LD H,(IX-KMFI_FREL+KMFI_LEN+1)
 	LD A,0x80
 	OR B
-	LD H,A
-	LD L,C
+	LD D,A
+	LD E,C
 	SBC HL,DE
 	JR C,_kmalloc_loop;	continue;
+	LD E,(IX-KMFI_FREL+KMFI_LEN)
+	LD D,(IX-KMFI_FREL+KMFI_LEN+1)
 	LD A,0x7f		; item->length &= ~0x8000;
 	AND D
 	LD D,A
 	LD (IX-KMFI_FREL+KMFI_LEN+1),D
-	PUSH BC			; if (item->length <= len + sizeof(struct free_item))
-	PUSH DE
+	PUSH BC
+	PUSH DE			; if (item->length <= len + sizeof(struct free_item))
 	LD HL,FREE_ITEM_SIZE+1
 	ADD HL,BC
 	SBC HL,DE
@@ -117,6 +119,8 @@ _kmalloc_loop:		; while ((ptr = ptr->next) != frel) {
 	PUSH IX
 	POP HL
 	CALL list_del	; list_del(&item->frel);
+	LD IX,KMALLOC_LOCK
+	CALL spin_unlock_irqsave
 	BUILD_BUG_ON(KMFI_FREL != KMHI_DATA)
 	POP HL			; ((struct heap_item *)item)->data
 	LD E,0			; Successfully allocated!
@@ -126,7 +130,7 @@ _kmalloc_fail:
 	CALL spin_unlock_irqsave
 	LD HL,0
 	RET
-_kmalloc_split:
+_kmalloc_split:		; else
 	LD HL,HEAP_ITEM_SIZE|0x8000; new_length = (item->length - len - sizeof(struct heap_item))|0x8000;
 	ADD HL,BC
 	EX DE,HL		; HL is now item->length
@@ -156,17 +160,19 @@ _kmalloc_split:
 	BUILD_BUG_ON(KMFI_LIST != 0)
 	CALL list_add
 					; list_replace(&item->frel, &new->frel);
-	POP HL			; is new
-	POP DE			; is item->frel
-	PUSH DE
+	POP DE			; is new
+	POP HL			; is item->frel
+	PUSH HL
 	BUILD_BUG_ON(KMFI_FREL != 6)
-	INC HL
-	INC HL
-	INC HL
-	INC HL
-	INC HL
-	INC HL
+	INC DE
+	INC DE
+	INC DE
+	INC DE
+	INC DE
+	INC DE
 	CALL list_replace
+	LD IX,KMALLOC_LOCK
+	CALL spin_unlock_irqsave
 	LD E,0			; Successfully allocated!
 	POP HL			; return ((struct heap_item *)item)->data; /* == item->frel */
 	RET
