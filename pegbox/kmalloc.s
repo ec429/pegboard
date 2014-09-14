@@ -190,7 +190,7 @@ kfree:
 	CALL spin_lock
 					; struct heap_item *hi = container_of(ptr, struct heap_item, data); /* == ptr - KMHI_DATA */
 					; struct free_item *item = hi;
-	PUSH HL			; if (item->list.next != base) {
+	PUSH HL			; if ((next=item->list.next) != base) {
 	PUSH HL
 	PUSH HL
 	POP IX
@@ -227,7 +227,45 @@ kfree:
 	LD DE,KMFI_FREL-KMFI_LIST; list_del(&next_item->frel);
 	ADD HL,DE
 	CALL list_del
-_kfree_no_merge_next:
+_kfree_no_merge_next:; }}
+	POP IX			; /* &item->data */
+	PUSH IX			; if ((prev=item->list.prev) != base) {
+	LD L,(IX-KMHI_DATA+KMHI_LIST+2)
+	LD H,(IX-KMHI_DATA+KMHI_LIST+3)
+	LD DE,KMALLOC_BASE
+	SBC HL,DE
+	JR Z,_kfree_no_merge_prev
+	ADD HL,DE		; prev_item = container_of(prev, struct free_item, list);
+	PUSH HL			; if (prev_item->length & 0x8000) {
+	POP IX			; /* IX = prev */
+	BUILD_BUG_ON(KMFI_LEN != KMHI_LEN)
+	LD B,(IX-KMFI_LIST+KMFI_LEN+1)
+	LD A,0x80
+	AND B
+	JR Z,_kfree_no_merge_prev
+	LD C,(IX-KMFI_LIST+KMFI_LEN)
+	POP IX			; /* &item->data */
+	PUSH HL			; /* prev */
+	PUSH BC			; list_del(&item->list);
+	PUSH IX
+	PUSH IX
+	POP HL
+	LD BC,KMHI_LIST-KMHI_DATA
+	ADD HL,BC
+	CALL list_del
+	POP IX			; /* &item->data */
+	POP BC			; /* prev_item->length */
+	LD E,(IX-KMHI_DATA+KMFI_LEN); prev_item->length = (prev_item->length + item->length + sizeof(struct heap_item));
+	LD D,(IX-KMHI_DATA+KMFI_LEN+1)
+	LD HL,HEAP_ITEM_SIZE
+	ADD HL,DE
+	ADD HL,BC
+	POP IX			; /* prev */
+	LD (IX-KMFI_LIST+KMFI_LEN),L
+	LD (IX-KMFI_LIST+KMFI_LEN+1),H
+	POP HL			; /* ptr; we don't need it but it's on the stack anyway */
+	RET				; return;
+_kfree_no_merge_prev:; }}
 	POP IX
 	LD A,(IX-KMHI_DATA+KMFI_LEN+1); item->length |= 0x8000; /* mark as free */
 	OR 0x80
