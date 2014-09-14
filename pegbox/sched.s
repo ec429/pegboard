@@ -486,14 +486,27 @@ _exec_forked:
 	CALL sched_yield
 	CALL sched_yield
 	LD BC,0x10
+	PUSH BC
 	CALL kmalloc
 	LD A,L
 	OR H
 	JR NZ,_ef1
+_efe:
 	LD HL,STR_kmalloc
 	CALL perror
 	CALL panic
 _ef1:
+	POP BC
+	PUSH HL
+	CALL kmalloc
+	LD A,L
+	OR H
+	JR Z,_efe
+	POP DE
+	EX DE,HL
+	PUSH DE
+	CALL kfree
+	POP HL
 	CALL kfree
 	CALL panic		; Haven't yet written a process loader (or a filesystem to load init from)
 
