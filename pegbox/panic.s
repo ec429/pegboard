@@ -32,9 +32,10 @@ panic:
 	CALL kputs_unlocked
 	LD B,0x10		; max. number of stack entries to print
 	XOR A			; make sure carry is clear
-	LD HL,MEM_STKTOP
+	LD HL,0
 	SBC HL,SP
-	CP H
+	LD A,0x0f
+	AND H
 	JR NZ,_panic_stack_loop; we've got at least 128 items, so we're fine
 	SRL L			; 2 bytes per stack item.  L is now stack depth in items
 	LD A,L

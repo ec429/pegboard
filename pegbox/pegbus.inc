@@ -20,4 +20,8 @@ PDRV_ID   equ 4;	uint16_t device_id;
 PDRV_PROB equ 6;	void (*probe)(__IX struct pegbus_device *device);
 ;}
 
+.macro DECLARE_PEGBUS_DRIVER id,probe
+.word 0, 0, \id, \probe
+.endm
+
 .endif

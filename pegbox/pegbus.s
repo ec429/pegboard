@@ -3,19 +3,37 @@
 .include "spinlock.inc"
 .include "pegbus.inc"
 
+PEGBUS_DRIVER_TABLE_SLOTS	equ 0x20
+
 .text
+
+pegbus_register_drivers:
+	LD IX,pegbus_driver_table
+	LD B,PEGBUS_DRIVER_TABLE_SLOTS
+_register_drivers_loop:
+	LD L,(IX+0)
+	LD H,(IX+1)
+	LD A,L
+	OR H
+	JR Z,_register_drivers_next
+	PUSH IX
+	PUSH BC
+	PUSH HL
+	POP IX
+	CALL pegbus_register_driver
+	POP BC
+	POP IX
+_register_drivers_next:
+	INC IX
+	INC IX
+	DJNZ _register_drivers_loop
+	RET
 
 .globl pegbus_setup	; initialise pegbus handling
 pegbus_setup:
 	LD IX,pegbus_drivers
 	CALL init_list_head
-	LD IX,test_device_driver; register driver for test device (0xff0d)
-	LD (IX+PDRV_ID),0x0d
-	LD (IX+PDRV_ID+1),0xff
-	LD BC,test_device_driver_probe
-	LD (IX+PDRV_PROB),C
-	LD (IX+PDRV_PROB+1),B
-	CALL pegbus_register_driver
+	CALL pegbus_register_drivers
 					; hook up the IRQ lines for all 16 possible pegbus slots
 	LD HL,INT_pegbus_0
 	LD DE,INT_pegbus_1-INT_pegbus_0; makes use of the fact that they're all the same length
@@ -333,29 +351,12 @@ _pegbus_register_driver_next:
 	CALL spin_unlock_irqsave
 	RET
 
-test_device_driver_probe:; probe device *IX, mapped at 0xf000
-	LD A,(IX+PDEV_SLOT)
-	PUSH AF
-	LD A,PEGBUS_CMD_SHUTUP
-	LD (0xf003),A
-	LD HL,test_device_driver_probed
-	LD IX,kprint_lock
-	CALL spin_lock
-	CALL kputs_unlocked
-	POP AF
-	CALL kprint_half_hex_unlocked
-	LD A,0x0a
-	CALL kputc_unlocked
-	CALL spin_unlock
-	RET
-
 .data
 .if DEBUG
 pegbus_irq_1: .asciz "pegbus device in slot "
 pegbus_irq_2: .asciz " interrupted CPU "
 .endif
 pegbus_no_driver: .asciz "No driver for pegbus device_id "
-test_device_driver_probed: .asciz "test_device: Probed device (id 0xff0d) in slot "
 pegbus_drivers_lock: .byte 0xfe
 pegbus_devices:.rept 16
 .byte 0xfe,0,0,0,0,0,0,0
@@ -363,4 +364,7 @@ pegbus_devices:.rept 16
 
 .bss
 pegbus_drivers: .skip 4; list_head
-test_device_driver: .skip PEGBUS_DRIVER_SIZE
+
+.section drv
+.org 0
+pegbus_driver_table:		; void (*register_fn[PEGBUS_DRIVER_TABLE_SLOTS])(void);
