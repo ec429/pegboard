@@ -5,6 +5,7 @@
 	virt-disk - virtual disk device
 */
 #include "virt-disk.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -13,16 +14,18 @@
 
 #define VIRT_DISK_ADDR_CMD	0x100
 #define VIRT_DISK_CMD_GETSIZE	0x20
+#define VIRT_DISK_CMD_SYNCCMD	0x30
 
 struct virt_disk_dev
 {
 	int fd;
-	bool shutup, paged;
+	bool shutup, paged, sync;
 	uint16_t offset;
 };
 
 uint8_t virt_disk_write_trap(struct pegbus_device *self, uint16_t addr, uint8_t data)
 {
+	//fprintf(stderr, "virt_disk_write_trap slot %x addr %04x data %02x\n", self->slot, addr, data);
 	struct virt_disk_dev *dev=self->dev;
 	if(!dev)
 		return(data);
@@ -38,7 +41,7 @@ uint8_t virt_disk_write_trap(struct pegbus_device *self, uint16_t addr, uint8_t 
 	return(data);
 }
 
-#define pb_irq()	if(!dev->shutup) { self->irq=true; }
+#define pb_irq()	if(dev->sync) { dev->sync=false; } else if(!dev->shutup) { self->irq=true; }
 #define complete()	do { pb_mem(VIRT_DISK_ADDR_CMD)|=0x80; self->do_tick=false; pb_irq(); } while(0)
 #define error(_e)	do { pb_mem(VIRT_DISK_ADDR_CMD)=0xe0|(_e); self->do_tick=false; pb_irq(); } while(0)
 
@@ -58,16 +61,23 @@ void virt_disk_tick(struct pegbus_device *self)
 	}
 	if(cmd==VIRT_DISK_CMD_GETSIZE)
 	{
-		pb_mem(VIRT_DISK_ADDR_CMD+1)=0xff; // max PH
-		pb_mem(VIRT_DISK_ADDR_CMD+2)=0xff; // max PL
+		pb_mem(VIRT_DISK_ADDR_CMD+1)=0xff; // max PL
+		pb_mem(VIRT_DISK_ADDR_CMD+2)=0xff; // max PH
 		pb_mem(VIRT_DISK_ADDR_CMD+3)=0x0f; // max SL
 		complete();
 		return;
 	}
+	if(cmd==VIRT_DISK_CMD_SYNCCMD)
+	{
+		pb_mem(VIRT_DISK_ADDR_CMD)|=0x80;
+		dev->sync=true;
+		self->do_tick=false;
+		return;
+	}
 	uint8_t width=cmd&0xf;
 	bool wr=cmd&0x10;
-	uint8_t ph=pb_mem(VIRT_DISK_ADDR_CMD+1),
-	        pl=pb_mem(VIRT_DISK_ADDR_CMD+2),
+	uint8_t pl=pb_mem(VIRT_DISK_ADDR_CMD+1),
+	        ph=pb_mem(VIRT_DISK_ADDR_CMD+2),
 	        sl=pb_mem(VIRT_DISK_ADDR_CMD+3);
 	if(!sl||sl>0xf)
 	{
@@ -107,7 +117,10 @@ void virt_disk_tick(struct pegbus_device *self)
 		}
 	}
 	if(dev->offset>=(width<<12))
+	{
 		complete();
+		dev->paged=false;
+	}
 }
 
 int virt_disk_attach(int fd)
@@ -119,6 +132,8 @@ int virt_disk_attach(int fd)
 		return(-ENOMEM);
 	dev->fd=fd;
 	dev->shutup=false;
+	dev->paged=false;
+	dev->sync=false;
 	return(pegbus_attach_device(VIRT_DISK_ID, 0x104, NULL, virt_disk_write_trap, virt_disk_tick, dev));
 }
 

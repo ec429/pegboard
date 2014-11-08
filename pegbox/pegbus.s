@@ -153,9 +153,9 @@ INT_pegbus_f:
 INT_pegbus:
 	EXX
 	PUSH IX
-.if DEBUG
 	PUSH AF
 	PERCPU
+.if DEBUG
 	LD IY,-PERCPU_SIZE
 	EX DE,HL
 	ADD IY,DE		; IY points to the percpu_struct
@@ -173,8 +173,9 @@ INT_pegbus:
 	LD A,0x0a
 	CALL kputc_unlocked
 	CALL spin_unlock
-	POP AF
 .endif
+	POP AF
+	CLI
 	LD BC,0x0f00|IO_MMU; get page mapped in at 0xf000
 	IN E,(C)
 	LD B,0x1f
@@ -189,13 +190,16 @@ INT_pegbus:
 	RLCA
 	OUT (C),A		; map in device's first page at 0xf000
 	LD IX,pegbus_devices; device = pegbus_devices+(slot*PEGBUS_DEVICE_SIZE)
-	BUILD_BUG_ON(PEGBUS_DEVICE_SIZE!=8)
+	BUILD_BUG_ON(PEGBUS_DEVICE_SIZE != 10)
+	SLA D
+	LD A,D
 	SLA D
 	SLA D
-	SLA D
+	ADD A,D
 	LD B,0
-	LD C,D
+	LD C,A
 	ADD IX,BC
+	BUILD_BUG_ON(PDEV_LOCK != 0)
 	CALL spin_lock
 	LD L,(IX+PDEV_DRIV)
 	LD H,(IX+PDEV_DRIV+1)
@@ -277,7 +281,7 @@ _INT_pegbus_out:
 	POP IX
 	EXX
 	EX AF,AF'
-	EI
+	STI
 	RETI
 
 _INT_pegbus_do_probe:; ((struct pegbus_driver *)IX)->probe((struct pegbus_device *)(SP+4))
@@ -299,6 +303,8 @@ pegbus_register_driver:
 	LD B,16
 	LD IX,pegbus_devices
 _pegbus_register_driver_loop:
+	BUILD_BUG_ON(PDEV_LOCK != 0)
+	CALL spin_lock_irqsave
 	LD A,(IX+PDEV_DRIV); check for device->driver
 	OR (IX+PDEV_DRIV+1)
 	JR NZ,_pegbus_register_driver_next; there's already a driver on this device, so skip it
@@ -341,6 +347,7 @@ _pegbus_register_driver_loop:
 	POP IX
 	POP BC
 _pegbus_register_driver_next:
+	CALL spin_unlock_irqsave
 	LD DE,PEGBUS_DEVICE_SIZE
 	ADD IX,DE
 	DJNZ _pegbus_register_driver_loop
@@ -358,8 +365,9 @@ pegbus_irq_2: .asciz " interrupted CPU "
 .endif
 pegbus_no_driver: .asciz "No driver for pegbus device_id "
 pegbus_drivers_lock: .byte 0xfe
+BUILD_BUG_ON(PEGBUS_DEVICE_SIZE != 10)
 pegbus_devices:.rept 16
-.byte 0xfe,0,0,0,0,0,0,0
+.byte 0xfe,0,0,0,0,0,0,0,0,0
 .endr
 
 .bss
@@ -367,4 +375,4 @@ pegbus_drivers: .skip 4; list_head
 
 .section drv
 .org 0
-pegbus_driver_table:		; void (*register_fn[PEGBUS_DRIVER_TABLE_SLOTS])(void);
+pegbus_driver_table:		; struct pegbus_driver pegbus_driver_table[PEGBUS_DRIVER_TABLE_SLOTS];

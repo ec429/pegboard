@@ -6,14 +6,14 @@ This request buffer is in ppage 0 at offset 0x100; pages 1 through f are the "sl
 
 struct request {
 	uint8_t cmd; // high bit clear
-	uint8_t ph; // high byte of page on disk
 	uint8_t pl; // low byte of page on disk
+	uint8_t ph; // high byte of page on disk
 	uint8_t sl; // slot number, 1 <= sl <= 0xf
 };
 struct response {
 	uint8_t cmd; // high bit set
-	uint8_t ph; // high byte of page on disk
 	uint8_t pl; // low byte of page on disk
+	uint8_t ph; // high byte of page on disk
 	uint8_t sl; // slot number, 1 <= sl <= 0xf
 };
 
@@ -31,5 +31,7 @@ CMD	Description
  etc...
  20	Get disk size
  a0	Disk size is (PH+1) * (PL+1) and max slot is SL.  (PL should always be 0xff)
+ 30	Don't raise an interrupt for completion of this or following command
+ b0	Ready to accept synchronous command
  eX	Last command returned error
 Any other commands yield undefined behaviour.

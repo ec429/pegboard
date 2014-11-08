@@ -79,8 +79,15 @@ kmalloc arena:
 	Important invariant: the base list is in address order, which kfree() uses to merge the freed item with adjacent items if they're also free.
 	(The free list is not so ordered.)
 
+Block layer:
+	struct block_device_ops { /* TODO create a generic struct device that can handle non-pegbus devices */
+		uint16_t (*bsize)(struct pegbus_device *dev); /* get size (in pages) of dev */
+		int (*bread)(struct pegbus_device *dev, uint16_t bpage, uint8_t rpage); /* read bpage from dev into rpage */
+		int (*bwrite)(struct pegbus_device *dev, uint8_t rpage, uint16_t bpage); /* write rpage to dev at bpage */
+	}
+	Block device naming: a block device in pegbus slot n is named '/dev/pd%c'%('a'+n).  Strictly speaking, using the hardware path in the disk name is Bad, but we can always do a /dev/disk/by-foo scheme later.
+
 Next steps:
-	Implement a kmalloc/kfree.
 	Define a simple virtual disk device, and write a driver for it.
 	Write useful print routines (a simple printk?)
 	Devise a scheme for IPIs.  (Probably just an OUT whose high address byte is CPUid, and the data byte could be a mailbox number of some sort.)

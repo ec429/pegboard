@@ -225,6 +225,8 @@ int main(int argc, char * argv[])
 					IRQ(IO_PEGBUS+(slot*2));
 				}
 			}
+			if(pbdevs[slot].do_tick)
+				pbdevs[slot].tick(pbdevs+slot);
 		}
 		for(unsigned int page=0;page<nr_pages;page++)
 		{
@@ -345,7 +347,7 @@ int main(int argc, char * argv[])
 					addr|=(page<<12);
 					if(slot<PB_MAX_DEV && pbdevs[slot].attached)
 					{
-						if(cbus[slot].tris==TRIS_OUT)
+						if(cbus[ci].tris==TRIS_OUT)
 						{
 							uint8_t data=cbus[ci].data;
 							if(addr<pbdevs[slot].trap_addr&&pbdevs[slot].write)
